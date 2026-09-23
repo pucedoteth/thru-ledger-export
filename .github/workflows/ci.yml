@@ -20,3 +20,18 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+
+  install-from-git:
+    # Installing from a git URL runs the "prepare" script, which must build dist/.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install from this commit as a git dependency
+        run: |
+          cd "$(mktemp -d)"
+          npm init -y > /dev/null
+          npm install "git+file://$GITHUB_WORKSPACE#$(git -C "$GITHUB_WORKSPACE" rev-parse HEAD)"
+          npx thru-ledger-export --help
