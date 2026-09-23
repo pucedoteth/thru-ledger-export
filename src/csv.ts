@@ -20,6 +20,16 @@ export const CSV_COLUMNS: (keyof LedgerRow)[] = [
   'readWriteAccounts',
   'readOnlyAccounts',
   'eventsCount',
+  'action',
+  'tokenMint',
+  'tokenSymbol',
+  'amountRaw',
+  'amount',
+  'direction',
+  'counterparty',
+  'tokenBalanceAfterRaw',
+  'tokenBalanceAfter',
+  'eventsDecoded',
   'explorerUrl',
 ];
 

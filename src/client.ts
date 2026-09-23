@@ -1,4 +1,5 @@
 import type {
+  AbiResponse,
   AccountResponse,
   AddressTransactionsResponse,
   TransactionDetail,
@@ -48,7 +49,8 @@ export class ThruExplorerClient {
     this.concurrency = Math.max(1, options.concurrency ?? 4);
     this.retries = Math.max(1, options.retries ?? 3);
     this.timeoutMs = options.timeoutMs ?? 30_000;
-    this.fetchImpl = options.fetchImpl ?? globalThis.fetch;
+    // Bind the global fetch: browsers throw "Illegal invocation" when it is called as a method of another object.
+    this.fetchImpl = options.fetchImpl ?? globalThis.fetch?.bind(globalThis);
     this.onProgress = options.onProgress;
     if (typeof this.fetchImpl !== 'function') {
       throw new ThruExplorerError('No fetch implementation available (Node 20+ required).');
@@ -89,6 +91,16 @@ export class ThruExplorerClient {
 
   getTransaction(signature: string): Promise<TransactionDetailResponse> {
     return this.getJson<TransactionDetailResponse>(`/api/tx/${encodeURIComponent(signature)}`);
+  }
+
+  /** A program's published ABI, or undefined if the explorer has none (HTTP 404). */
+  async getAbi(program: string): Promise<AbiResponse | undefined> {
+    try {
+      return await this.getJson<AbiResponse>(`/api/abi/${encodeURIComponent(program)}`);
+    } catch (error) {
+      if (error instanceof ThruExplorerError && error.status === 404) return undefined;
+      throw error;
+    }
   }
 
   /** Walk every page of an account's transaction list, newest first. */

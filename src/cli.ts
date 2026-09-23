@@ -16,6 +16,10 @@ Options:
       --to <date>        Only on/before this UTC date (YYYY-MM-DD)
       --limit <n>        Stop after n transactions (newest first)
       --success-only     Skip failed transactions
+      --no-decode        Don't decode events (no amount columns, fewer requests)
+      --token-account <address>
+                         A token account owned by this address that was created
+                         before the exported history (repeatable)
       --base-url <url>   Explorer base URL (default: https://scan.thru.org)
       --concurrency <n>  Parallel detail requests (default: 4)
   -q, --quiet            No progress output
@@ -50,6 +54,8 @@ async function main(): Promise<void> {
     successOnly: args.successOnly,
     baseUrl: args.baseUrl,
     concurrency: args.concurrency,
+    decode: args.decode,
+    tokenAccounts: args.tokenAccounts,
     onProgress: ({ fetched, total, phase }) => {
       if (args.quiet) return;
       const suffix = total ? `/${total}` : '';
@@ -66,6 +72,12 @@ async function main(): Promise<void> {
     await writeFile(args.out, output, 'utf8');
     log(`Wrote ${result.rows.length} transactions to ${args.out}`);
     log(`Fees paid by this account: ${result.totalFeesThru} THRU`);
+    for (const total of result.tokenTotals) {
+      const name = total.tokenSymbol || total.tokenMint;
+      const show = (formatted: string, raw: string) => formatted || `${raw} raw`;
+      log(`${name}: in ${show(total.in, total.inRaw)}, out ${show(total.out, total.outRaw)}` +
+        (total.closingBalanceRaw ? `, balance ${show(total.closingBalance, total.closingBalanceRaw)}` : ''));
+    }
   } else {
     process.stdout.write(output);
   }

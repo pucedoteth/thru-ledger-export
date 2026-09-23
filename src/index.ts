@@ -4,3 +4,7 @@ export * from './csv.js';
 export * from './client.js';
 export * from './export.js';
 export * from './args.js';
+export * from './events.js';
+export * from './abi.js';
+export * from './address.js';
+export { parseYaml, YamlError, type YamlValue } from './yaml.js';

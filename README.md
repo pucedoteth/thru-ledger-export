@@ -32,8 +32,11 @@ thru-ledger-export <address> --from 2026-01-01 --to 2026-03-31 -o q1.csv
 # The 50 most recent transactions, successful ones only
 thru-ledger-export <address> --limit 50 --success-only -o recent.csv
 
-# JSON instead, including the account balance and total fees
+# JSON instead, including the account balance, total fees and per-token totals
 thru-ledger-export <address> -f json -o ledger.json
+
+# A token account this address owned before the exported period
+thru-ledger-export <address> --from 2026-07-01 --token-account <token-account> -o h2.csv
 ```
 
 | Option | Meaning |
@@ -44,6 +47,8 @@ thru-ledger-export <address> -f json -o ledger.json
 | `--to <YYYY-MM-DD>` | Keep transactions on or before this UTC date |
 | `--limit <n>` | Stop after n transactions, newest first |
 | `--success-only` | Drop transactions that failed consensus or execution |
+| `--no-decode` | Don't decode events: no amount columns, and no ABI requests |
+| `--token-account <address>` | A token account owned by the exported address (repeatable; see below) |
 | `--base-url <url>` | Explorer base URL (default `https://scan.thru.org`) |
 | `--concurrency <n>` | Parallel detail requests (default 4) |
 | `-q, --quiet` | No progress output |
@@ -66,9 +71,44 @@ One row per transaction, oldest first.
 | `transactionSizeBytes` | Size of the transaction |
 | `readWriteAccounts`, `readOnlyAccounts` | Accounts touched, space separated |
 | `eventsCount` | Number of events emitted |
+| `action` | What the transaction did, from its decoded events: `transfer`, `mint_to`, `burn`, `initialize_mint`, `initialize_account`… |
+| `tokenMint`, `tokenSymbol` | The token involved, and its ticker when known |
+| `amountRaw`, `amount` | Amount moved, in the token's smallest unit and in whole tokens |
+| `direction` | `in` or `out` for the exported account, `self` between its own accounts |
+| `counterparty` | The other account in a transfer |
+| `tokenBalanceAfterRaw`, `tokenBalanceAfter` | The exported account's token balance right after the transaction, as reported on chain |
+| `eventsDecoded` | How many of the transaction's events could be decoded |
 | `explorerUrl` | Link back to the transaction in the explorer |
 
 Amounts are written as exact decimal strings using big integers, so no value is rounded. Fields beginning with `=`, `+`, `-` or `@` are prefixed with an apostrophe so Excel and Sheets treat them as text rather than formulas, and the file carries a UTF-8 byte-order mark so Excel opens it with the right encoding.
+
+## Token amounts
+
+Thru's explorer returns each event as raw hex. For every program that emits
+events, the tool fetches that program's published ABI once, from
+`/api/abi/{program}`, and decodes the events with it. For the Token Program that
+gives transfers, mints and burns with their amounts, and the balance after each
+one, straight from the chain, so the balance column needs no arithmetic and can
+be checked against the explorer.
+
+A few things to know:
+
+- **Ownership.** A token balance lives in a *token account* owned by your
+  address, not in the address itself. The tool learns which token accounts are
+  yours from the account-creation events in the fetched history. If a token
+  account was created before the history you export (for example with
+  `--limit`), pass it with `--token-account` so its movements get a direction
+  and a balance. Date filters (`--from`, `--to`) don't hide ownership: they are
+  applied after the whole history is read.
+- **Decimals and tickers** come from the mint's creation event. When that isn't
+  in the history, `amount` and `tokenBalanceAfter` stay empty and the `…Raw`
+  columns still carry the exact values.
+- **One row per transaction.** When a transaction moves several tokens, the row
+  shows the first movement that involves your account. The JSON output has
+  every decoded event under `rows[].events`, plus `tokenTotals` with each
+  token's total in, total out, net and closing balance.
+- **No guessing.** A payload that doesn't match the ABI byte for byte is left
+  undecoded (`decoded: false` with the reason in the JSON), never partly read.
 
 ## Use as a library
 
@@ -78,16 +118,26 @@ import { exportAccount, toCsv } from 'thru-ledger-export';
 const result = await exportAccount('taNXLcTw...dn9rcC', { limit: 100 });
 console.log(result.totalFeesThru, 'THRU in fees');
 console.log(toCsv(result.rows));
+console.log(result.tokenTotals); // per token: in, out, net, closing balance
 ```
 
-`ThruExplorerClient` is exported too, if you want the raw explorer responses: `getAccount`, `getTransaction`, `listAllTransactions` and `getTransactions`.
+`ThruExplorerClient` is exported too, if you want the raw explorer responses: `getAccount`, `getTransaction`, `getAbi`, `listAllTransactions` and `getTransactions`.
+
+The decoder works on its own as well:
+
+```ts
+import { parseAbi, AbiDecoder, hexToBytes } from 'thru-ledger-export';
+
+const abi = parseAbi(abiYamlText);
+const event = new AbiDecoder(abi).decode(abi.eventsRoot!, hexToBytes(payloadHex));
+```
 
 ## What this does not do
 
 Being clear about the limits matters more than a longer feature list:
 
-- **No token or balance amounts per transaction.** The explorer API returns event payloads as raw hex, which need the program's ABI to decode. This tool reports fees, resource usage and which accounts were touched — not "sent 5 THRU to X". Decoding events through `/api/abi/{program}` is the obvious next step.
-- **No running balance column**, for the same reason. The JSON output does include the account's current balance.
+- **No native THRU transfer amounts.** Token Program activity is decoded, but plain THRU transfers go through the System Program, which emits no events and has no ABI on the explorer. Those rows still show the fee and the accounts touched, and the JSON output includes the account's current THRU balance.
+- **Only programs with a published ABI are decoded.** Events from other programs are counted in `eventsCount` but not in `eventsDecoded`.
 - **Timestamps come from the block**, which is when the network recorded the transaction.
 - **Data comes from the public explorer** at `scan.thru.org`, which serves Thru's alphanet. This is a read-only tool: it never asks for a key, a seed phrase or a signature.
 - **No rate limits are published** for the explorer API. The default of 4 parallel requests is deliberately gentle; raise `--concurrency` at your own risk.
@@ -101,7 +151,7 @@ npm run typecheck
 npm run build
 ```
 
-Tests use responses captured from `scan.thru.org` on 2026-09-20, so they run offline and don't depend on chain state.
+Tests use responses captured from `scan.thru.org` on 2026-09-20 and 2026-09-23, so they run offline and don't depend on chain state. The Token Program ABI in `test/fixtures/` is the explorer's copy, byte for byte the same as the one in [Unto-Labs/thru](https://github.com/Unto-Labs/thru) (Apache-2.0). The two transfer events in the token tests are built by hand from that ABI, because none turned up in the history sampled; they are marked as such.
 
 ## License
 
