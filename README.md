@@ -85,6 +85,7 @@ One row per transaction, oldest first.
 | `counterparty` | The other account in a transfer |
 | `tokenBalanceAfterRaw`, `tokenBalanceAfter` | The exported account's token balance right after the transaction, as reported on chain |
 | `eventsDecoded` | How many of the transaction's events could be decoded |
+| `thruBalanceAfterRaw`, `thruBalanceAfter` | The exported account's THRU balance right after the transaction (see below) |
 | `explorerUrl` | Link back to the transaction in the explorer |
 
 Amounts are written as exact decimal strings using big integers, so no value is rounded. Fields beginning with `=`, `+`, `-` or `@` are prefixed with an apostrophe so Excel and Sheets treat them as text rather than formulas, and the file carries a UTF-8 byte-order mark so Excel opens it with the right encoding.
@@ -117,6 +118,39 @@ A few things to know:
 - **No guessing.** A payload that doesn't match the ABI byte for byte is left
   undecoded (`decoded: false` with the reason in the JSON), never partly read.
 
+## Native THRU
+
+Plain THRU never appears as an event: it moves through the EOA program and the
+faucet, so the tool reads those programs' instruction bytes instead (layouts
+from Thru's own transaction builders). Those rows get `action` `thru_transfer`,
+`faucet_withdraw` or `faucet_deposit`, with `tokenMint` and `tokenSymbol` set to
+`THRU` and amounts to 9 decimals. Failed transactions move nothing and are not
+counted, though their fee still is.
+
+The explorer only gives today's THRU balance, so `thruBalanceAfter` is worked
+back from it through every decoded transfer and every fee the account paid.
+Every account starts at zero, which gives a check: when the whole history is
+exported, working back must end at exactly 0. The JSON output reports this as
+`thruCheck`, and the command warns if it doesn't hold. That means THRU moved in
+a way the tool doesn't decode yet (another program, for example), so treat the
+THRU balance column with care for that account.
+
+## Opening, movements and closing
+
+For each token, and for THRU, the summary (printed after a file export, and as
+`tokenTotals` in JSON) gives the period's figures:
+
+```
+MFT: opening 1000000.006567 + in 1.000000 - out 2.500000 = closing 999998.506567 (reconciles)
+THRU: opening 0.000010000 + in 0.000000000 - out 0.000000000 - fees 0.000000000 = closing 0.000010000 (reconciles)
+```
+
+The period is whatever `--from` and `--to` select. Openings come from the
+history before the period, which is always fetched in full; with `--limit` the
+start of the history may be cut off, so an opening balance can show as unknown
+rather than a guessed zero. Token balances come straight from on-chain events;
+THRU balances are derived as described above.
+
 ## Use as a library
 
 ```ts
@@ -143,7 +177,8 @@ const event = new AbiDecoder(abi).decode(abi.eventsRoot!, hexToBytes(payloadHex)
 
 Being clear about the limits matters more than a longer feature list:
 
-- **No native THRU transfer amounts.** Token Program activity is decoded, but plain THRU transfers go through the System Program, which emits no events and has no ABI on the explorer. Those rows still show the fee and the accounts touched, and the JSON output includes the account's current THRU balance.
+- **THRU moved by other programs isn't decoded.** Native THRU is read from EOA and faucet instructions only. If another program moves THRU for an account, `thruCheck` will flag it.
+- **Multicall transactions aren't unpacked.** Calls bundled through the Multicall program show their events, but not their inner instructions.
 - **Only programs with a published ABI are decoded.** Events from other programs are counted in `eventsCount` but not in `eventsDecoded`.
 - **Timestamps come from the block**, which is when the network recorded the transaction.
 - **Data comes from the public explorer** at `scan.thru.org`, which serves Thru's alphanet. This is a read-only tool: it never asks for a key, a seed phrase or a signature.

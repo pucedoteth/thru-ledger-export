@@ -131,12 +131,14 @@ describe('exportAccount with decoding', () => {
   it('totals each token, and the totals reconcile to the closing balance', async () => {
     const { impl } = tokenFetch();
     const result = await exportAccount(WALLET, { fetchImpl: impl });
-    expect(result.tokenTotals).toEqual([{
-      tokenMint: MINT, tokenSymbol: 'MFT', decimals: 6,
+    expect(result.tokenTotals[0]).toEqual({
+      tokenMint: MINT, tokenSymbol: 'MFT', decimals: 6, balanceSource: 'on-chain',
+      openingBalanceRaw: '0', openingBalance: '0.000000',
       inRaw: '1000001006589', outRaw: '2500022', netRaw: '999998506567',
       in: '1000001.006589', out: '2.500022', net: '999998.506567',
       closingBalanceRaw: '999998506567', closingBalance: '999998.506567',
-    }]);
+      reconciles: true,
+    });
   });
 
   it('learns ownership from the full history even when a date filter hides the setup rows', async () => {
