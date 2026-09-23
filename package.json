@@ -1,6 +1,6 @@
 {
   "name": "thru-ledger-export",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Export a Thru account's transaction history to CSV or JSON for bookkeeping, audit and analysis.",
   "type": "module",
   "bin": { "thru-ledger-export": "dist/cli.js" },
