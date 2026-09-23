@@ -1,4 +1,5 @@
-import type { LedgerRow, TransactionDetail } from './types.js';
+import type { DecodedEvent, LedgerRow, TransactionDetail } from './types.js';
+import type { Movement } from './events.js';
 
 /** Raw units in one THRU. Confirmed against the explorer: 10000 raw = 0.00001 THRU. */
 export const RAW_UNITS_PER_THRU = 1_000_000_000n;
@@ -56,7 +57,11 @@ export function isSuccess(detail: TransactionDetail): boolean {
  * column, which tells you whether that account paid the fee or was merely
  * referenced by the transaction.
  */
-export function toLedgerRow(detail: TransactionDetail, account: string): LedgerRow {
+export function toLedgerRow(
+  detail: TransactionDetail,
+  account: string,
+  decoded?: { movement: Movement; events: DecodedEvent[] },
+): LedgerRow {
   const timestampUtc = nsToIso(detail.blockTimestampNs);
   const readWrite = detail.accounts?.readWriteAccounts ?? [];
   const readOnly = detail.accounts?.readOnlyAccounts ?? [];
@@ -82,7 +87,18 @@ export function toLedgerRow(detail: TransactionDetail, account: string): LedgerR
     readWriteAccounts: readWrite.join(' '),
     readOnlyAccounts: readOnly.join(' '),
     eventsCount: detail.events?.eventsCount ?? detail.events?.events?.length ?? 0,
+    action: decoded?.movement.action ?? '',
+    tokenMint: decoded?.movement.tokenMint ?? '',
+    tokenSymbol: decoded?.movement.tokenSymbol ?? '',
+    amountRaw: decoded?.movement.amountRaw ?? '',
+    amount: decoded?.movement.amount ?? '',
+    direction: decoded?.movement.direction ?? '',
+    counterparty: decoded?.movement.counterparty ?? '',
+    tokenBalanceAfterRaw: decoded?.movement.tokenBalanceAfterRaw ?? '',
+    tokenBalanceAfter: decoded?.movement.tokenBalanceAfter ?? '',
+    eventsDecoded: decoded?.events.filter((event) => event.decoded).length ?? 0,
     explorerUrl: EXPLORER_TX_BASE + detail.signature,
+    ...(decoded ? { events: decoded.events } : {}),
   };
 }
 

@@ -12,10 +12,15 @@ export interface ParsedArgs {
   concurrency?: number;
   quiet: boolean;
   help: boolean;
+  /** Decode events with program ABIs (on unless --no-decode). */
+  decode: boolean;
+  tokenAccounts: string[];
 }
 
 export function parseArgs(argv: string[]): ParsedArgs {
-  const parsed: ParsedArgs = { format: 'csv', successOnly: false, quiet: false, help: false };
+  const parsed: ParsedArgs = {
+    format: 'csv', successOnly: false, quiet: false, help: false, decode: true, tokenAccounts: [],
+  };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     const next = (): string => {
@@ -27,6 +32,13 @@ export function parseArgs(argv: string[]): ParsedArgs {
       case '-h': case '--help': parsed.help = true; break;
       case '-q': case '--quiet': parsed.quiet = true; break;
       case '--success-only': parsed.successOnly = true; break;
+      case '--no-decode': parsed.decode = false; break;
+      case '--token-account': {
+        const value = next();
+        if (!/^ta[A-Za-z0-9_-]{44}$/.test(value)) throw new Error(`--token-account must be a Thru address: ${value}`);
+        parsed.tokenAccounts.push(value);
+        break;
+      }
       case '-o': case '--out': parsed.out = next(); break;
       case '--from': parsed.from = next(); break;
       case '--to': parsed.to = next(); break;

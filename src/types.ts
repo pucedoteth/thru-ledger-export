@@ -93,6 +93,30 @@ export interface AccountResponse {
   };
 }
 
+/** /api/abi/{program} */
+export interface AbiResponse {
+  data: {
+    programAddress: string;
+    programName?: string;
+    /** The ABI document, as YAML text. */
+    abi: string;
+  };
+}
+
+/** One event of a transaction, decoded with its program's ABI when possible. */
+export interface DecodedEvent {
+  index: number;
+  program: string;
+  programName?: string;
+  /** Event variant, e.g. transfer, mint_to, burn. Empty when not decoded. */
+  type: string;
+  decoded: boolean;
+  /** Decoded fields: u64 values as decimal strings, addresses as ta… strings. */
+  fields?: Record<string, unknown>;
+  /** Why the event could not be decoded. */
+  error?: string;
+}
+
 /** One output row: a single transaction, flattened for a spreadsheet. */
 export interface LedgerRow {
   timestampUtc: string;
@@ -114,5 +138,23 @@ export interface LedgerRow {
   readWriteAccounts: string;
   readOnlyAccounts: string;
   eventsCount: number;
+  /** What the transaction did, from its decoded events (e.g. transfer, mint_to, burn). */
+  action: string;
+  /** Token mint the movement is in, and its ticker when known. */
+  tokenMint: string;
+  tokenSymbol: string;
+  /** Amount moved in the token's smallest unit, and in whole tokens when decimals are known. */
+  amountRaw: string;
+  amount: string;
+  /** in / out for the exported account, self for a move between its own accounts. */
+  direction: 'in' | 'out' | 'self' | '';
+  counterparty: string;
+  /** The exported account's token balance right after this transaction, as reported on chain. */
+  tokenBalanceAfterRaw: string;
+  tokenBalanceAfter: string;
+  /** Events decoded / events present. */
+  eventsDecoded: number;
   explorerUrl: string;
+  /** Every event, decoded where possible. JSON output only. */
+  events?: DecodedEvent[];
 }
