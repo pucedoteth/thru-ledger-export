@@ -5,6 +5,7 @@
 import { AbiDecoder, AbiDecodeError, EnumValue, type DecodedValue, type ProgramAbi } from './abi.js';
 import { hexToBytes } from './address.js';
 import type { DecodedEvent, TransactionDetail } from './types.js';
+import { NATIVE_DECIMALS, NATIVE_SYMBOL, type NativeTransfer } from './native.js';
 
 /** Returns the ABI for a program, or undefined when none is published. */
 export type AbiLookup = (program: string) => ProgramAbi | undefined;
@@ -199,4 +200,30 @@ export function primaryMovement(events: DecodedEvent[], context: TokenContext): 
   if (pick) return pick.movement;
   const firstDecoded = events.find((event) => event.decoded);
   return { ...EMPTY, action: firstDecoded?.type ?? '' };
+}
+
+/** Describe a native THRU movement from the exported address's point of view. */
+export function describeNativeTransfer(transfer: NativeTransfer, address: string): Movement {
+  const out = transfer.from === address;
+  const into = transfer.to === address;
+  return {
+    ...EMPTY,
+    action: transfer.kind,
+    tokenMint: NATIVE_SYMBOL,
+    tokenSymbol: NATIVE_SYMBOL,
+    amountRaw: transfer.amountRaw,
+    amount: formatUnits(transfer.amountRaw, NATIVE_DECIMALS),
+    direction: out && into ? 'self' : out ? 'out' : into ? 'in' : '',
+    counterparty: out && !into ? transfer.to : into && !out ? transfer.from : '',
+  };
+}
+
+/** The THRU effect of a movement on the exported address: +in, -out, 0 otherwise. */
+export function nativeDelta(transfer: NativeTransfer | undefined, address: string): bigint {
+  if (!transfer) return 0n;
+  const amount = BigInt(transfer.amountRaw);
+  let delta = 0n;
+  if (transfer.to === address) delta += amount;
+  if (transfer.from === address) delta -= amount;
+  return delta;
 }

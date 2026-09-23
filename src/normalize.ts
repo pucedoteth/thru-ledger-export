@@ -97,6 +97,8 @@ export function toLedgerRow(
     tokenBalanceAfterRaw: decoded?.movement.tokenBalanceAfterRaw ?? '',
     tokenBalanceAfter: decoded?.movement.tokenBalanceAfter ?? '',
     eventsDecoded: decoded?.events.filter((event) => event.decoded).length ?? 0,
+    thruBalanceAfterRaw: '',
+    thruBalanceAfter: '',
     explorerUrl: EXPLORER_TX_BASE + detail.signature,
     ...(decoded ? { events: decoded.events } : {}),
   };

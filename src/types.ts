@@ -76,6 +76,14 @@ export interface TransactionDetail {
   transactionSize?: number;
   accounts?: TransactionAccounts;
   events?: TransactionEvents;
+  /** The transaction's instruction bytes, as hex. */
+  instructions?: TransactionInstruction;
+}
+
+export interface TransactionInstruction {
+  instruction?: string;
+  instructionDataSize?: number;
+  programAddress?: string;
 }
 
 export interface TransactionDetailResponse {
@@ -154,6 +162,12 @@ export interface LedgerRow {
   tokenBalanceAfter: string;
   /** Events decoded / events present. */
   eventsDecoded: number;
+  /**
+   * The exported account's THRU balance right after this transaction, worked
+   * back from its current balance. Empty when the current balance is unknown.
+   */
+  thruBalanceAfterRaw: string;
+  thruBalanceAfter: string;
   explorerUrl: string;
   /** Every event, decoded where possible. JSON output only. */
   events?: DecodedEvent[];

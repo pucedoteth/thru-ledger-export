@@ -74,9 +74,16 @@ async function main(): Promise<void> {
     log(`Fees paid by this account: ${result.totalFeesThru} THRU`);
     for (const total of result.tokenTotals) {
       const name = total.tokenSymbol || total.tokenMint;
-      const show = (formatted: string, raw: string) => formatted || `${raw} raw`;
-      log(`${name}: in ${show(total.in, total.inRaw)}, out ${show(total.out, total.outRaw)}` +
-        (total.closingBalanceRaw ? `, balance ${show(total.closingBalance, total.closingBalanceRaw)}` : ''));
+      const show = (formatted: string, raw: string) => formatted || (raw ? `${raw} raw` : 'unknown');
+      const check = total.reconciles === true ? 'reconciles' : total.reconciles === false ? 'DOES NOT RECONCILE' : 'opening unknown';
+      log(`${name}: opening ${show(total.openingBalance, total.openingBalanceRaw)}` +
+        ` + in ${show(total.in, total.inRaw)} - out ${show(total.out, total.outRaw)}` +
+        (total.feesRaw !== undefined ? ` - fees ${show(total.fees ?? '', total.feesRaw)}` : '') +
+        ` = closing ${show(total.closingBalance, total.closingBalanceRaw)} (${check})`);
+    }
+    if (result.thruCheck?.ok === false) {
+      log(`Warning: working back from today's THRU balance ends at ${result.thruCheck.derivedStartingBalanceRaw} raw, not 0.` +
+        ' Some THRU moved in a way this tool does not decode, so the THRU balance column may be off.');
     }
   } else {
     process.stdout.write(output);

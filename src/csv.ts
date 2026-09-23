@@ -30,6 +30,8 @@ export const CSV_COLUMNS: (keyof LedgerRow)[] = [
   'tokenBalanceAfterRaw',
   'tokenBalanceAfter',
   'eventsDecoded',
+  'thruBalanceAfterRaw',
+  'thruBalanceAfter',
   'explorerUrl',
 ];
 
