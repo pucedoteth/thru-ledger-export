@@ -8,17 +8,24 @@ No API key. No account. No runtime dependencies.
 
 ## Install
 
-```bash
-npm install -g thru-ledger-export
-```
-
-Or run it without installing:
+Run it straight from GitHub, without installing anything first:
 
 ```bash
-npx thru-ledger-export <address> -o ledger.csv
+npx github:pucedoteth/thru-ledger-export <address> -o ledger.csv
 ```
 
-Requires Node.js 20 or newer.
+Or install it once and use the short name afterwards:
+
+```bash
+npm install -g github:pucedoteth/thru-ledger-export
+thru-ledger-export <address> -o ledger.csv
+```
+
+The first run downloads and builds the tool, so it takes a minute; later runs are fast.
+To pin a version, add a release tag, e.g. `github:pucedoteth/thru-ledger-export#v0.2.0`.
+
+Requires Node.js 20 or newer. (The package is not on the npm registry yet, so
+`npm install thru-ledger-export` without `github:` won't find it.)
 
 ## Usage
 
