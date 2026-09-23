@@ -19,3 +19,17 @@ describe('parseArgs', () => {
     expect(() => parseArgs(['taABC', '-o'])).toThrow(/Missing value/);
   });
 });
+
+describe('decoding options', () => {
+  it('decodes by default and accepts --no-decode', () => {
+    expect(parseArgs(['taNXLcTwQfg0fR-ZDKOeJLFnBIoWlLdM8ZvB6e58dn9rcC']).decode).toBe(true);
+    expect(parseArgs(['taNXLcTwQfg0fR-ZDKOeJLFnBIoWlLdM8ZvB6e58dn9rcC', '--no-decode']).decode).toBe(false);
+  });
+
+  it('collects repeated --token-account values and rejects non-addresses', () => {
+    const a = 'ta65HhDjlQbCqtHqxF613QF4u7vpTM8IUwIW9piuq4CR_L';
+    const b = 'taTPC-jUSGS2oCxhB23YWqzP8mEr-J2Hy5DuORftiL5aam';
+    expect(parseArgs(['x', '--token-account', a, '--token-account', b]).tokenAccounts).toEqual([a, b]);
+    expect(() => parseArgs(['x', '--token-account', 'nope'])).toThrow(/Thru address/);
+  });
+});

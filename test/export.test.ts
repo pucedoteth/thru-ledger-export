@@ -94,3 +94,21 @@ describe('filterByDate', () => {
     expect(filterByDate(rows)).toBe(rows);
   });
 });
+
+describe('ThruExplorerClient default fetch', () => {
+  it('calls the global fetch with globalThis as its receiver, as browsers require', async () => {
+    const original = globalThis.fetch;
+    let receiver: unknown;
+    globalThis.fetch = function (this: unknown) {
+      receiver = this;
+      return Promise.resolve(new Response(JSON.stringify({ data: { address: ACCOUNT } }), { status: 200 }));
+    } as typeof fetch;
+    try {
+      const { ThruExplorerClient } = await import('../src/client.js');
+      await new ThruExplorerClient().getAccount(ACCOUNT);
+      expect(receiver).toBe(globalThis);
+    } finally {
+      globalThis.fetch = original;
+    }
+  });
+});
