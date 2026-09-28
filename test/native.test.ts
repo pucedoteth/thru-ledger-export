@@ -58,12 +58,12 @@ function historyFetch(history: TransactionDetail[], balanceRaw: string) {
   const impl = async (input: string | URL | Request): Promise<Response> => {
     const url = String(input);
     if (url.includes('/api/abi/')) {
-      const program = decodeURIComponent(url.split('/api/abi/')[1]!);
+      const program = decodeURIComponent(url.split('/api/abi/')[1]!.split('?')[0]!);
       if (program !== TOKEN_PROGRAM) return json({ error: 'NOT_FOUND' }, 404);
       return json({ data: { programAddress: TOKEN_PROGRAM, programName: 'Token Program', abi: TOKEN_ABI_YAML } });
     }
     if (url.includes('/api/tx/')) {
-      const signature = decodeURIComponent(url.split('/api/tx/')[1]!);
+      const signature = decodeURIComponent(url.split('/api/tx/')[1]!.split('?')[0]!);
       return json({ data: history.find((tx) => tx.signature === signature) });
     }
     if (url.includes('/transactions')) {

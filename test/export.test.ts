@@ -21,7 +21,7 @@ function fakeFetch(options: { pages?: number; failures?: number } = {}) {
     });
 
     if (url.includes('/api/tx/')) {
-      const signature = decodeURIComponent(url.split('/api/tx/')[1]!);
+      const signature = decodeURIComponent(url.split('/api/tx/')[1]!.split('?')[0]!);
       const detail = signature === ORACLE_TX.signature ? ORACLE_TX : SYSTEM_TX;
       return json({ data: detail });
     }
