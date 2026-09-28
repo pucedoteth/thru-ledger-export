@@ -20,15 +20,17 @@ Options:
       --token-account <address>
                          A token account owned by this address that was created
                          before the exported history (repeatable)
+  -n, --network <name>   alphanet | betanet       (default: alphanet)
       --base-url <url>   Explorer base URL (default: https://scan.thru.org)
       --concurrency <n>  Parallel detail requests (default: 4)
   -q, --quiet            No progress output
   -h, --help             Show this help
 
 Examples:
-  thru-ledger-export taNXLcTw...dn9rcC -o ledger.csv
-  thru-ledger-export taNXLcTw...dn9rcC --from 2026-01-01 --to 2026-03-31 -o q1.csv
-  thru-ledger-export taNXLcTw...dn9rcC -f json | jq '.rows[0]'
+  thru-ledger-export <address> -o ledger.csv
+  thru-ledger-export <address> --network betanet -o ledger.csv
+  thru-ledger-export <address> --from 2026-01-01 --to 2026-03-31 -o q1.csv
+  thru-ledger-export <address> -f json | jq '.rows[0]'
 `;
 
 async function main(): Promise<void> {
@@ -53,6 +55,7 @@ async function main(): Promise<void> {
     to: args.to,
     successOnly: args.successOnly,
     baseUrl: args.baseUrl,
+    network: args.network,
     concurrency: args.concurrency,
     decode: args.decode,
     tokenAccounts: args.tokenAccounts,
@@ -70,7 +73,7 @@ async function main(): Promise<void> {
 
   if (args.out) {
     await writeFile(args.out, output, 'utf8');
-    log(`Wrote ${result.rows.length} transactions to ${args.out}`);
+    log(`Wrote ${result.rows.length} transactions from ${result.network} to ${args.out}`);
     log(`Fees paid by this account: ${result.totalFeesThru} THRU`);
     for (const total of result.tokenTotals) {
       const name = total.tokenSymbol || total.tokenMint;

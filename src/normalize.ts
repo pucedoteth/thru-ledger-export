@@ -7,6 +7,11 @@ export const THRU_DECIMALS = 9;
 
 const EXPLORER_TX_BASE = 'https://scan.thru.org/tx/';
 
+/** Link to a transaction in the explorer's web page, on the right network. */
+export function explorerTxUrl(signature: string, network?: string): string {
+  return EXPLORER_TX_BASE + signature + (network ? `?network=${encodeURIComponent(network)}` : '');
+}
+
 /**
  * Format a raw integer amount as a decimal THRU string, without floating point.
  * Keeps all 9 decimals so values stay exact and sortable in a spreadsheet.
@@ -61,6 +66,7 @@ export function toLedgerRow(
   detail: TransactionDetail,
   account: string,
   decoded?: { movement: Movement; events: DecodedEvent[] },
+  network?: string,
 ): LedgerRow {
   const timestampUtc = nsToIso(detail.blockTimestampNs);
   const readWrite = detail.accounts?.readWriteAccounts ?? [];
@@ -99,7 +105,7 @@ export function toLedgerRow(
     eventsDecoded: decoded?.events.filter((event) => event.decoded).length ?? 0,
     thruBalanceAfterRaw: '',
     thruBalanceAfter: '',
-    explorerUrl: EXPLORER_TX_BASE + detail.signature,
+    explorerUrl: explorerTxUrl(detail.signature, network),
     ...(decoded ? { events: decoded.events } : {}),
   };
 }

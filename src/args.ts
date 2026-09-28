@@ -9,6 +9,7 @@ export interface ParsedArgs {
   limit?: number;
   successOnly: boolean;
   baseUrl?: string;
+  network?: string;
   concurrency?: number;
   quiet: boolean;
   help: boolean;
@@ -43,6 +44,12 @@ export function parseArgs(argv: string[]): ParsedArgs {
       case '--from': parsed.from = next(); break;
       case '--to': parsed.to = next(); break;
       case '--base-url': parsed.baseUrl = next(); break;
+      case '-n': case '--network': {
+        const value = next();
+        if (!/^[a-z][a-z0-9-]*$/.test(value)) throw new Error(`--network must be a network name such as alphanet or betanet: ${value}`);
+        parsed.network = value;
+        break;
+      }
       case '--limit': parsed.limit = Number(next()); break;
       case '--concurrency': parsed.concurrency = Number(next()); break;
       case '-f': case '--format': {

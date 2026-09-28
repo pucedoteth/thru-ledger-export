@@ -7,10 +7,18 @@
 import { hexToBytes } from './address.js';
 import type { TransactionDetail } from './types.js';
 
-/** The EOA program (all-zero key) moves THRU between accounts. */
-export const EOA_PROGRAM = 'taAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
-/** The faucet program (key ending 0xFA). */
-export const FAUCET_PROGRAM = 'taAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPr6';
+/**
+ * The EOA program moves THRU between accounts. Thru v0.4.0 (September 2026)
+ * gave every bootstrap program a new address, and Alphanet was reset onto
+ * them; Betanet uses them too (rpc/thru-base/src/bootstrap_addresses.rs).
+ */
+export const EOA_PROGRAM = 'taEOAD2uLK1SLzPgtabFLUAx22yDlBs9DE9nZFTOESIGRr';
+export const FAUCET_PROGRAM = 'taFCTxR0y2eabGGaEdtTwC9pHz7ZY4CYD7FOiBFUJeAW16';
+/** Addresses before the v0.4.0 reset: the all-zero key, and the key ending 0xFA. Kept so older data still decodes. */
+export const LEGACY_EOA_PROGRAM = 'taAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+export const LEGACY_FAUCET_PROGRAM = 'taAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPr6';
+const EOA_PROGRAMS = new Set([EOA_PROGRAM, LEGACY_EOA_PROGRAM]);
+const FAUCET_PROGRAMS = new Set([FAUCET_PROGRAM, LEGACY_FAUCET_PROGRAM]);
 /** Used in the tokenMint and tokenSymbol columns for native THRU. */
 export const NATIVE_SYMBOL = 'THRU';
 export const NATIVE_DECIMALS = 9;
@@ -39,7 +47,8 @@ export function transactionAccounts(detail: TransactionDetail): string[] {
 export function decodeNativeTransfer(detail: TransactionDetail): NativeTransfer | undefined {
   const program = detail.instructions?.programAddress ?? detail.program ?? '';
   const hex = detail.instructions?.instruction;
-  if (!hex || (program !== EOA_PROGRAM && program !== FAUCET_PROGRAM)) return undefined;
+  const isEoa = EOA_PROGRAMS.has(program);
+  if (!hex || (!isEoa && !FAUCET_PROGRAMS.has(program))) return undefined;
 
   let bytes: Uint8Array;
   try {
@@ -60,7 +69,7 @@ export function decodeNativeTransfer(detail: TransactionDetail): NativeTransfer 
     return { kind, from, to, amountRaw: amount.toString() };
   };
 
-  if (program === EOA_PROGRAM) {
+  if (isEoa) {
     // TRANSFER (1): u32 discriminant, u64 amount, u16 from, u16 to — 16 bytes.
     if (discriminant !== 1 || bytes.length !== 16) return undefined;
     return result('thru_transfer', view.getUint16(12, true), view.getUint16(14, true), view.getBigUint64(4, true));
