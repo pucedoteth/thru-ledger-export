@@ -69,6 +69,8 @@ export interface ThruCheck {
 
 export interface ExportResult {
   account: string;
+  /** The explorer network the history came from. */
+  network: string;
   balance?: string;
   balanceRaw?: string;
   period: { from?: string; to?: string };
@@ -248,14 +250,14 @@ export async function exportAccount(address: string, options: ExportOptions = {}
   const context = buildTokenContext(address, [...decodedByTx.values()].flat(), options.tokenAccounts);
 
   const entries = details.map((detail) => {
-    if (!decode) return { row: toLedgerRow(detail, address), transfer: undefined };
+    if (!decode) return { row: toLedgerRow(detail, address, undefined, client.network), transfer: undefined };
     const events = decodedByTx.get(detail.signature) ?? [];
     // A failed transaction moves nothing, so only successful ones count as native movements.
     const transfer = isSuccess(detail) ? decodeNativeTransfer(detail) : undefined;
     const tokenMovement = primaryMovement(events, context);
     const native = transfer ? describeNativeTransfer(transfer, address) : undefined;
     const movement = native && (native.direction !== '' || tokenMovement.action === '') ? native : tokenMovement;
-    return { row: toLedgerRow(detail, address, { events, movement }), transfer };
+    return { row: toLedgerRow(detail, address, { events, movement }, client.network), transfer };
   });
   entries.sort((a, b) => byTime(a.row, b.row));
 
@@ -276,6 +278,7 @@ export async function exportAccount(address: string, options: ExportOptions = {}
   const totalFeesRaw = totalFeesPaidRaw(rows, address);
   return {
     account: address,
+    network: client.network,
     balance: account?.data?.balance,
     balanceRaw: account?.data?.balanceRaw,
     period: { from: options.from, to: options.to },

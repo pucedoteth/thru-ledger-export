@@ -8,10 +8,19 @@ import type {
 } from './types.js';
 
 export const DEFAULT_BASE_URL = 'https://scan.thru.org';
+/**
+ * The explorer serves several networks and picks "the first configured" one
+ * when none is named, which can change without notice. Every request names
+ * its network explicitly.
+ */
+export const DEFAULT_NETWORK = 'alphanet';
+export const KNOWN_NETWORKS = ['alphanet', 'betanet'] as const;
 export const MAX_PAGE_SIZE = 100;
 
 export interface ClientOptions {
   baseUrl?: string;
+  /** Explorer network slug, e.g. alphanet or betanet. Default alphanet. */
+  network?: string;
   /** Requests in flight when fetching transaction details. Default 4. */
   concurrency?: number;
   /** Attempts per request, including the first. Default 3. */
@@ -38,6 +47,7 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export class ThruExplorerClient {
   private readonly baseUrl: string;
+  readonly network: string;
   private readonly concurrency: number;
   private readonly retries: number;
   private readonly timeoutMs: number;
@@ -46,6 +56,7 @@ export class ThruExplorerClient {
 
   constructor(options: ClientOptions = {}) {
     this.baseUrl = (options.baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, '');
+    this.network = options.network ?? DEFAULT_NETWORK;
     this.concurrency = Math.max(1, options.concurrency ?? 4);
     this.retries = Math.max(1, options.retries ?? 3);
     this.timeoutMs = options.timeoutMs ?? 30_000;
@@ -58,7 +69,8 @@ export class ThruExplorerClient {
   }
 
   private async getJson<T>(path: string): Promise<T> {
-    const url = `${this.baseUrl}${path}`;
+    const separator = path.includes('?') ? '&' : '?';
+    const url = `${this.baseUrl}${path}${separator}network=${encodeURIComponent(this.network)}`;
     let lastError: unknown;
     for (let attempt = 1; attempt <= this.retries; attempt++) {
       try {
