@@ -30,8 +30,11 @@ Requires Node.js 20 or newer. (The package is not on the npm registry yet, so
 ## Usage
 
 ```bash
-# Whole history to a CSV file
-thru-ledger-export taNXLcTwQfg0fR-ZDKOeJLFnBIoWlLdM8ZvB6e58dn9rcC -o ledger.csv
+# Whole history to a CSV file (Alphanet)
+thru-ledger-export <address> -o ledger.csv
+
+# The same on Betanet
+thru-ledger-export <address> --network betanet -o ledger.csv
 
 # One quarter only
 thru-ledger-export <address> --from 2026-01-01 --to 2026-03-31 -o q1.csv
@@ -56,9 +59,25 @@ thru-ledger-export <address> --from 2026-07-01 --token-account <token-account> -
 | `--success-only` | Drop transactions that failed consensus or execution |
 | `--no-decode` | Don't decode events: no amount columns, and no ABI requests |
 | `--token-account <address>` | A token account owned by the exported address (repeatable; see below) |
+| `-n, --network <name>` | `alphanet` (default) or `betanet`; see [Networks](#networks) |
 | `--base-url <url>` | Explorer base URL (default `https://scan.thru.org`) |
 | `--concurrency <n>` | Parallel detail requests (default 4) |
 | `-q, --quiet` | No progress output |
+
+## Networks
+
+The explorer at `scan.thru.org` serves more than one Thru network, chosen with
+`?network=`. When a request doesn't name one, it gets "the first configured
+network", which can change without notice, so this tool names the network on
+every request. The default is `alphanet`; add `--network betanet` for Betanet.
+The `explorerUrl` column links to the same network.
+
+Thru v0.4.0 (September 2026) moved every built-in program to a new address
+(the EOA program to `taEOAD2u…`, the faucet to `taFCTx…`, the Token Program to
+`taTOKEN…`), and Alphanet was reset onto them; Betanet uses them too. Histories
+from before that reset are no longer on the explorer. The tool recognises both
+the new addresses and the old ones, so data captured before the reset still
+decodes.
 
 ## Output columns
 
@@ -156,7 +175,7 @@ THRU balances are derived as described above.
 ```ts
 import { exportAccount, toCsv } from 'thru-ledger-export';
 
-const result = await exportAccount('taNXLcTw...dn9rcC', { limit: 100 });
+const result = await exportAccount('<address>', { network: 'betanet', limit: 100 });
 console.log(result.totalFeesThru, 'THRU in fees');
 console.log(toCsv(result.rows));
 console.log(result.tokenTotals); // per token: in, out, net, closing balance
@@ -181,7 +200,7 @@ Being clear about the limits matters more than a longer feature list:
 - **Multicall transactions aren't unpacked.** Calls bundled through the Multicall program show their events, but not their inner instructions.
 - **Only programs with a published ABI are decoded.** Events from other programs are counted in `eventsCount` but not in `eventsDecoded`.
 - **Timestamps come from the block**, which is when the network recorded the transaction.
-- **Data comes from the public explorer** at `scan.thru.org`, which serves Thru's alphanet. This is a read-only tool: it never asks for a key, a seed phrase or a signature.
+- **Data comes from the public explorer** at `scan.thru.org`, for the network you choose. This is a read-only tool: it never asks for a key, a seed phrase or a signature.
 - **No rate limits are published** for the explorer API. The default of 4 parallel requests is deliberately gentle; raise `--concurrency` at your own risk.
 
 ## Development
@@ -193,7 +212,7 @@ npm run typecheck
 npm run build
 ```
 
-Tests use responses captured from `scan.thru.org` on 2026-09-20 and 2026-09-23, so they run offline and don't depend on chain state. The Token Program ABI in `test/fixtures/` is the explorer's copy, byte for byte the same as the one in [Unto-Labs/thru](https://github.com/Unto-Labs/thru) (Apache-2.0). The two transfer events in the token tests are built by hand from that ABI, because none turned up in the history sampled; they are marked as such.
+Tests use responses captured from `scan.thru.org` on 2026-09-20, 2026-09-23 and (after the reset, from Alphanet on the new addresses) 2026-09-28, so they run offline and don't depend on chain state. The Token Program ABI in `test/fixtures/` is the explorer's copy, byte for byte the same as the one in [Unto-Labs/thru](https://github.com/Unto-Labs/thru) (Apache-2.0). The two transfer events in the token tests are built by hand from that ABI, because none turned up in the history sampled; they are marked as such.
 
 ## License
 
