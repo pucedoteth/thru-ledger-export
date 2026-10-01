@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { writeFile } from 'node:fs/promises';
-import { toCsv } from './csv.js';
+import { toCsv, tradesToCsv } from './csv.js';
 import { exportAccount } from './export.js';
 import { parseArgs, type ParsedArgs } from './args.js';
 
@@ -17,6 +17,8 @@ Options:
       --limit <n>        Stop after n transactions (newest first)
       --success-only     Skip failed transactions
       --no-decode        Don't decode events (no amount columns, fewer requests)
+      --trades <file>    Also write Perp trades (fills, deposits, withdrawals,
+                         liquidations) to this CSV file
       --token-account <address>
                          A token account owned by this address that was created
                          before the exported history (repeatable)
@@ -71,6 +73,11 @@ async function main(): Promise<void> {
     ? JSON.stringify(result, null, 2) + '\n'
     : toCsv(result.rows);
 
+  if (args.trades) {
+    await writeFile(args.trades, tradesToCsv(result.trades), 'utf8');
+    log(`Wrote ${result.trades.length} Perp trades to ${args.trades}`);
+  }
+
   if (args.out) {
     await writeFile(args.out, output, 'utf8');
     log(`Wrote ${result.rows.length} transactions from ${result.network} to ${args.out}`);
@@ -83,6 +90,10 @@ async function main(): Promise<void> {
         ` + in ${show(total.in, total.inRaw)} - out ${show(total.out, total.outRaw)}` +
         (total.feesRaw !== undefined ? ` - fees ${show(total.fees ?? '', total.feesRaw)}` : '') +
         ` = closing ${show(total.closingBalance, total.closingBalanceRaw)} (${check})`);
+    }
+    for (const total of result.tradeTotals) {
+      log(`Perp ${total.market.slice(0, 8)}…: ${total.fills} fills, bought ${total.boughtQty}, sold ${total.soldQty}` +
+        (total.closingLongLots ? `, position ${total.closingLongLots} long / ${total.closingShortLots} short lots` : ''));
     }
     if (result.thruCheck?.ok === false) {
       log(`Warning: working back from today's THRU balance ends at ${result.thruCheck.derivedStartingBalanceRaw} raw, not 0.` +

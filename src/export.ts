@@ -6,6 +6,7 @@ import {
 } from './events.js';
 import { decodeNativeTransfer, NATIVE_DECIMALS, NATIVE_SYMBOL, type NativeTransfer } from './native.js';
 import type { DecodedEvent, LedgerRow, TransactionDetail } from './types.js';
+import { collectMarkets, summarizeTrades, tradeRowsFor, type TradeRow, type TradeTotal } from './perp.js';
 
 export interface ExportOptions extends ClientOptions {
   /** Stop after this many transactions (newest first). */
@@ -81,6 +82,10 @@ export interface ExportResult {
   totalFeesThru: string;
   tokenTotals: TokenTotal[];
   thruCheck?: ThruCheck;
+  /** Perp fills, collateral deposits and withdrawals, and liquidations involving the address, oldest first. */
+  trades: TradeRow[];
+  /** Per-market totals over `trades`. */
+  tradeTotals: TradeTotal[];
   generatedAt: string;
 }
 
@@ -249,15 +254,25 @@ export async function exportAccount(address: string, options: ExportOptions = {}
   // Ownership and token metadata come from the whole fetched history, before date filters.
   const context = buildTokenContext(address, [...decodedByTx.values()].flat(), options.tokenAccounts);
 
+  const markets = collectMarkets([...decodedByTx.values()].flat());
   const entries = details.map((detail) => {
-    if (!decode) return { row: toLedgerRow(detail, address, undefined, client.network), transfer: undefined };
+    if (!decode) return { row: toLedgerRow(detail, address, undefined, client.network), transfer: undefined, trades: [] as TradeRow[] };
     const events = decodedByTx.get(detail.signature) ?? [];
     // A failed transaction moves nothing, so only successful ones count as native movements.
     const transfer = isSuccess(detail) ? decodeNativeTransfer(detail) : undefined;
     const tokenMovement = primaryMovement(events, context);
     const native = transfer ? describeNativeTransfer(transfer, address) : undefined;
-    const movement = native && (native.direction !== '' || tokenMovement.action === '') ? native : tokenMovement;
-    return { row: toLedgerRow(detail, address, { events, movement }, client.network), transfer };
+    let movement = native && (native.direction !== '' || tokenMovement.action === '') ? native : tokenMovement;
+    const row = toLedgerRow(detail, address, { events, movement }, client.network);
+    const trades = tradeRowsFor(events, address, {
+      timestampUtc: row.timestampUtc, date: row.date, signature: row.signature, explorerUrl: row.explorerUrl,
+    }, markets);
+    // A Perp trade with no token or THRU movement of its own is labelled by what the address did.
+    if (trades.length > 0 && movement.direction === '') {
+      movement = { ...movement, action: `perp_${trades[0]!.kind}` };
+      row.action = movement.action;
+    }
+    return { row, transfer, trades };
   });
   entries.sort((a, b) => byTime(a.row, b.row));
 
@@ -274,6 +289,9 @@ export async function exportAccount(address: string, options: ExportOptions = {}
   if (options.successOnly) rows = rows.filter((row) => row.succeeded);
   const priorRows = options.from ? allRows.filter((row) => row.date !== '' && row.date < options.from!) : [];
 
+  const kept = new Set(rows.map((row) => row.signature));
+  const trades = entries.filter((entry) => kept.has(entry.row.signature)).flatMap((entry) => entry.trades);
+
   const decimals = new Map([...context.mints].map(([mint, info]) => [mint, info.decimals]));
   const totalFeesRaw = totalFeesPaidRaw(rows, address);
   return {
@@ -287,6 +305,8 @@ export async function exportAccount(address: string, options: ExportOptions = {}
     totalFeesRaw,
     totalFeesThru: formatThru(totalFeesRaw),
     tokenTotals: summarizeTokens(rows, { address, priorRows, historyComplete, decimals, thruStartRaw }),
+    trades,
+    tradeTotals: summarizeTrades(trades),
     ...(thruCheck ? { thruCheck } : {}),
     generatedAt: new Date().toISOString(),
   };

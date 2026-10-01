@@ -1,4 +1,5 @@
 import type { LedgerRow } from './types.js';
+import type { TradeRow } from './perp.js';
 
 export const CSV_COLUMNS: (keyof LedgerRow)[] = [
   'timestampUtc',
@@ -56,4 +57,18 @@ export function toCsv(rows: LedgerRow[], options: { bom?: boolean } = {}): strin
   }
   const text = lines.join('\r\n') + '\r\n';
   return options.bom === false ? text : '﻿' + text;
+}
+
+export const TRADE_COLUMNS: (keyof TradeRow)[] = [
+  'timestampUtc', 'date', 'signature', 'market', 'quoteMint', 'kind', 'role', 'side', 'price', 'qty',
+  'notionalQuoteRaw', 'amountQuoteRaw', 'feeQuoteRaw', 'longLotsAfter', 'shortLotsAfter', 'netLotsAfter',
+  'collateralQuoteAfterRaw', 'counterparty', 'explorerUrl',
+];
+
+/** Render Perp trade rows as CSV, with the same quoting and BOM as the ledger. */
+export function tradesToCsv(rows: TradeRow[], options: { bom?: boolean } = {}): string {
+  const lines = [TRADE_COLUMNS.join(',')];
+  for (const row of rows) lines.push(TRADE_COLUMNS.map((column) => escapeCsvField(row[column])).join(','));
+  const text = lines.join('\r\n') + '\r\n';
+  return options.bom === false ? text : '\uFEFF' + text;
 }
