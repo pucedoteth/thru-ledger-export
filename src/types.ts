@@ -71,6 +71,8 @@ export interface TransactionDetail {
   memoryUnits?: UnitCounter;
   blockTimestampNs?: string;
   nonce?: string;
+  /** Transaction header flags; bit 0 means it carries a fee-payer state proof. */
+  flags?: number;
   feePayer?: string;
   program?: string;
   transactionSize?: number;
