@@ -1,7 +1,15 @@
 {
   "name": "thru-ledger-export",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "Export a Thru account's transaction history to CSV or JSON for bookkeeping, audit and analysis.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pucedoteth/thru-ledger-export.git"
+  },
+  "homepage": "https://github.com/pucedoteth/thru-ledger-export#readme",
+  "bugs": {
+    "url": "https://github.com/pucedoteth/thru-ledger-export/issues"
+  },
   "type": "module",
   "bin": { "thru-ledger-export": "dist/cli.js" },
   "main": "dist/index.js",
