@@ -150,6 +150,11 @@ from Thru's own transaction builders). Those rows get `action` `thru_transfer`,
 `THRU` and amounts to 9 decimals. Failed transactions move nothing and are not
 counted, though their fee still is.
 
+The transaction that created the account (what `thru account create` sends: a
+call to the NOOP program carrying a proof that its fee payer is new) moves no
+THRU, but is labelled `account_create`, so the history starts where the account
+does.
+
 The explorer only gives today's THRU balance, so `thruBalanceAfter` is worked
 back from it through every decoded transfer and every fee the account paid.
 Every account starts at zero, which gives a check: when the whole history is

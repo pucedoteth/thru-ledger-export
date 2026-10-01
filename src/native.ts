@@ -14,6 +14,8 @@ import type { TransactionDetail } from './types.js';
  */
 export const EOA_PROGRAM = 'taEOAD2uLK1SLzPgtabFLUAx22yDlBs9DE9nZFTOESIGRr';
 export const FAUCET_PROGRAM = 'taFCTxR0y2eabGGaEdtTwC9pHz7ZY4CYD7FOiBFUJeAW16';
+/** Does nothing on its own; an account is created by a NOOP transaction carrying a proof that its fee payer is new. */
+export const NOOP_PROGRAM = 'taNOOPV4A7S3WTsirr149To2GoGZ9q8zllQaBrbekHfkJT';
 /** Addresses before the v0.4.0 reset: the all-zero key, and the key ending 0xFA. Kept so older data still decodes. */
 export const LEGACY_EOA_PROGRAM = 'taAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
 export const LEGACY_FAUCET_PROGRAM = 'taAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPr6';
@@ -83,4 +85,18 @@ export function decodeNativeTransfer(detail: TransactionDetail): NativeTransfer 
     return result('faucet_deposit', view.getUint16(6, true), view.getUint16(4, true), view.getBigUint64(10, true));
   }
   return undefined;
+}
+
+/** TN_TXN_FLAG_HAS_FEE_PAYER_PROOF is bit 0 of the transaction flags (rpc/thru-base/src/tn_txn.rs). */
+const HAS_FEE_PAYER_PROOF = 1;
+
+/**
+ * Whether this transaction created the address's account: what `thru account create`
+ * sends (TransactionBuilder::build_create_with_fee_payer_proof), a transaction to the
+ * NOOP program, paid for by the new account, with a fee-payer state proof.
+ */
+export function isAccountCreation(detail: TransactionDetail, address: string): boolean {
+  const program = detail.program ?? detail.accounts?.program ?? detail.instructions?.programAddress;
+  const feePayer = detail.feePayer ?? detail.accounts?.feePayer;
+  return program === NOOP_PROGRAM && feePayer === address && ((Number(detail.flags) || 0) & HAS_FEE_PAYER_PROOF) !== 0;
 }

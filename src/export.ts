@@ -4,7 +4,7 @@ import { parseAbi, type ProgramAbi } from './abi.js';
 import {
   buildTokenContext, decodeEvents, describeNativeTransfer, formatUnits, nativeDelta, primaryMovement,
 } from './events.js';
-import { decodeNativeTransfer, NATIVE_DECIMALS, NATIVE_SYMBOL, type NativeTransfer } from './native.js';
+import { decodeNativeTransfer, isAccountCreation, NATIVE_DECIMALS, NATIVE_SYMBOL, type NativeTransfer } from './native.js';
 import type { DecodedEvent, LedgerRow, TransactionDetail } from './types.js';
 import { collectMarkets, summarizeTrades, tradeRowsFor, type TradeRow, type TradeTotal } from './perp.js';
 
@@ -271,6 +271,10 @@ export async function exportAccount(address: string, options: ExportOptions = {}
     if (trades.length > 0 && movement.direction === '') {
       movement = { ...movement, action: `perp_${trades[0]!.kind}` };
       row.action = movement.action;
+    }
+    // Creating an account moves nothing, but it is the first line of the account's history.
+    if (movement.direction === '' && row.action === '' && isSuccess(detail) && isAccountCreation(detail, address)) {
+      row.action = 'account_create';
     }
     return { row, transfer, trades };
   });
