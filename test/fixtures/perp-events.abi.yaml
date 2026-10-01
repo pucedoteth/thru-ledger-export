@@ -1,0 +1,674 @@
+# Event types of the Thru Perp Program ABI (thru.program.perp 0.2.0), program
+# tayM9Pm_Zpu30DUvzYpBUFsG2riV3tdhWg9yPgN3gV_zO1 on Betanet, as served by
+# scan.thru.org/api/abi/{program}?network=betanet on 2026-10-01 (full ABI: 47,484
+# characters, SHA-256 prefix a7310f7f2bb1c536). Only PerpEvent and the types it
+# uses are kept; field names, order and sizes are copied from the live ABI.
+abi:
+  package: thru.program.perp
+  name: "Perp Program"
+  abi-version: 1
+  package-version: "0.2.0"
+  options:
+    program-metadata:
+      root-types:
+        events: "PerpEvent"
+types:
+- name: PerpEvent
+  kind:
+    struct:
+      packed: true
+      fields:
+      - name: event_type
+        field-type:
+          primitive: u64
+      - name: payload
+        field-type:
+          enum:
+            packed: true
+            tag-ref:
+              field-ref:
+                path: [event_type]
+            variants:
+            - name: seat_assigned
+              tag-value: 1
+              variant-type:
+                type-ref:
+                  name: SeatAssignedEvent
+            - name: order_cancelled
+              tag-value: 2
+              variant-type:
+                type-ref:
+                  name: OrderCancelledEvent
+            - name: market_created
+              tag-value: 3
+              variant-type:
+                type-ref:
+                  name: MarketCreatedEvent
+            - name: order_filled
+              tag-value: 4
+              variant-type:
+                type-ref:
+                  name: OrderFilledEvent
+            - name: order_posted
+              tag-value: 5
+              variant-type:
+                type-ref:
+                  name: OrderPostedEvent
+            - name: order_entry_removed
+              tag-value: 6
+              variant-type:
+                type-ref:
+                  name: OrderEntryRemovedEvent
+            - name: order_modified
+              tag-value: 7
+              variant-type:
+                type-ref:
+                  name: OrderModifiedEvent
+            - name: token_deposit
+              tag-value: 8
+              variant-type:
+                type-ref:
+                  name: TokenBalanceEvent
+            - name: token_withdraw
+              tag-value: 9
+              variant-type:
+                type-ref:
+                  name: TokenBalanceEvent
+            - name: market_status
+              tag-value: 10
+              variant-type:
+                type-ref:
+                  name: MarketStatusEvent
+            - name: exchange_initialized
+              tag-value: 11
+              variant-type:
+                type-ref:
+                  name: ExchangeInitializedEvent
+            - name: exchange_status
+              tag-value: 12
+              variant-type:
+                type-ref:
+                  name: ExchangeStatusEvent
+            - name: exchange_admin
+              tag-value: 13
+              variant-type:
+                type-ref:
+                  name: ExchangeAdminEvent
+            - name: market_exchange_status
+              tag-value: 14
+              variant-type:
+                type-ref:
+                  name: MarketExchangeStatusEvent
+            - name: liquidation
+              tag-value: 15
+              variant-type:
+                type-ref:
+                  name: LiquidationEvent
+- name: SeatAssignedEvent
+  kind:
+    struct:
+      packed: true
+      fields:
+      - name: seat_idx
+        field-type:
+          primitive: u32
+      - name: seat_authority
+        field-type:
+          type-ref:
+            name: Pubkey
+            package: "thru.common.primitives"
+      - name: market
+        field-type:
+          type-ref:
+            name: Pubkey
+            package: "thru.common.primitives"
+- name: OrderCancelledEvent
+  kind:
+    struct:
+      packed: true
+      fields:
+      - name: seat_idx
+        field-type:
+          primitive: u32
+      - name: side
+        field-type:
+          primitive: u8
+      - name: order_type
+        field-type:
+          primitive: u8
+      - name: reserved0
+        field-type:
+          array:
+            size:
+              literal:
+                u64: 2
+            element-type:
+              primitive: u8
+      - name: price
+        field-type:
+          primitive: u64
+      - name: qty
+        field-type:
+          primitive: u64
+      - name: client_id
+        field-type:
+          type-ref:
+            name: ClientId
+      - name: market
+        field-type:
+          type-ref:
+            name: Pubkey
+            package: "thru.common.primitives"
+      - name: seat_authority
+        field-type:
+          type-ref:
+            name: Pubkey
+            package: "thru.common.primitives"
+- name: ClientId
+  kind:
+    array:
+      size:
+        literal:
+          u64: 16
+      element-type:
+        primitive: u8
+- name: MarketCreatedEvent
+  kind:
+    struct:
+      packed: true
+      fields:
+      - name: lot_size
+        field-type:
+          primitive: u64
+      - name: tick_size
+        field-type:
+          primitive: u64
+      - name: price_cap
+        field-type:
+          primitive: u64
+      - name: max_position_lots
+        field-type:
+          primitive: u64
+      - name: quote_mint
+        field-type:
+          type-ref:
+            name: Pubkey
+            package: "thru.common.primitives"
+      - name: market_authority
+        field-type:
+          type-ref:
+            name: Pubkey
+            package: "thru.common.primitives"
+      - name: market
+        field-type:
+          type-ref:
+            name: Pubkey
+            package: "thru.common.primitives"
+      - name: order_arena
+        field-type:
+          type-ref:
+            name: Pubkey
+            package: "thru.common.primitives"
+      - name: bids_cbook
+        field-type:
+          type-ref:
+            name: Pubkey
+            package: "thru.common.primitives"
+      - name: asks_cbook
+        field-type:
+          type-ref:
+            name: Pubkey
+            package: "thru.common.primitives"
+      - name: quote_vault
+        field-type:
+          type-ref:
+            name: Pubkey
+            package: "thru.common.primitives"
+- name: OrderFilledEvent
+  kind:
+    struct:
+      packed: true
+      fields:
+      - name: taker_seat_idx
+        field-type:
+          primitive: u32
+      - name: maker_seat_idx
+        field-type:
+          primitive: u32
+      - name: taker_side
+        field-type:
+          primitive: u8
+      - name: reserved0
+        field-type:
+          array:
+            size:
+              literal:
+                u64: 3
+            element-type:
+              primitive: u8
+      - name: price
+        field-type:
+          primitive: u64
+      - name: qty
+        field-type:
+          primitive: u64
+      - name: maker_order_id
+        field-type:
+          primitive: u64
+      - name: maker_client_id
+        field-type:
+          type-ref:
+            name: ClientId
+      - name: taker_long_lots
+        field-type:
+          primitive: u64
+      - name: taker_short_lots
+        field-type:
+          primitive: u64
+      - name: maker_long_lots
+        field-type:
+          primitive: u64
+      - name: maker_short_lots
+        field-type:
+          primitive: u64
+      - name: market
+        field-type:
+          type-ref:
+            name: Pubkey
+            package: "thru.common.primitives"
+      - name: taker_seat_authority
+        field-type:
+          type-ref:
+            name: Pubkey
+            package: "thru.common.primitives"
+      - name: maker_seat_authority
+        field-type:
+          type-ref:
+            name: Pubkey
+            package: "thru.common.primitives"
+- name: OrderPostedEvent
+  kind:
+    struct:
+      packed: true
+      fields:
+      - name: seat_idx
+        field-type:
+          primitive: u32
+      - name: side
+        field-type:
+          primitive: u8
+      - name: order_type
+        field-type:
+          primitive: u8
+      - name: reserved0
+        field-type:
+          array:
+            size:
+              literal:
+                u64: 2
+            element-type:
+              primitive: u8
+      - name: price
+        field-type:
+          primitive: u64
+      - name: qty
+        field-type:
+          primitive: u64
+      - name: order_id
+        field-type:
+          primitive: u64
+      - name: client_id
+        field-type:
+          type-ref:
+            name: ClientId
+      - name: market
+        field-type:
+          type-ref:
+            name: Pubkey
+            package: "thru.common.primitives"
+      - name: seat_authority
+        field-type:
+          type-ref:
+            name: Pubkey
+            package: "thru.common.primitives"
+- name: OrderEntryRemovedEvent
+  kind:
+    struct:
+      packed: true
+      fields:
+      - name: seat_idx
+        field-type:
+          primitive: u32
+      - name: side
+        field-type:
+          primitive: u8
+      - name: reason
+        field-type:
+          primitive: u8
+      - name: reserved0
+        field-type:
+          array:
+            size:
+              literal:
+                u64: 2
+            element-type:
+              primitive: u8
+      - name: price
+        field-type:
+          primitive: u64
+      - name: qty
+        field-type:
+          primitive: u64
+      - name: order_id
+        field-type:
+          primitive: u64
+      - name: client_id
+        field-type:
+          type-ref:
+            name: ClientId
+      - name: market
+        field-type:
+          type-ref:
+            name: Pubkey
+            package: "thru.common.primitives"
+      - name: seat_authority
+        field-type:
+          type-ref:
+            name: Pubkey
+            package: "thru.common.primitives"
+- name: OrderModifiedEvent
+  kind:
+    struct:
+      packed: true
+      fields:
+      - name: seat_idx
+        field-type:
+          primitive: u32
+      - name: side
+        field-type:
+          primitive: u8
+      - name: reserved0
+        field-type:
+          array:
+            size:
+              literal:
+                u64: 3
+            element-type:
+              primitive: u8
+      - name: price
+        field-type:
+          primitive: u64
+      - name: qty
+        field-type:
+          primitive: u64
+      - name: order_id
+        field-type:
+          primitive: u64
+      - name: client_id
+        field-type:
+          type-ref:
+            name: ClientId
+      - name: exp_time
+        field-type:
+          primitive: i64
+      - name: market
+        field-type:
+          type-ref:
+            name: Pubkey
+            package: "thru.common.primitives"
+      - name: seat_authority
+        field-type:
+          type-ref:
+            name: Pubkey
+            package: "thru.common.primitives"
+- name: TokenBalanceEvent
+  kind:
+    struct:
+      packed: true
+      fields:
+      - name: seat_idx
+        field-type:
+          primitive: u32
+      - name: reserved0
+        field-type:
+          array:
+            size:
+              literal:
+                u64: 4
+            element-type:
+              primitive: u8
+      - name: amount
+        field-type:
+          primitive: u64
+      - name: quantity_quote
+        field-type:
+          primitive: u64
+      - name: long_lots
+        field-type:
+          primitive: u64
+      - name: short_lots
+        field-type:
+          primitive: u64
+      - name: market
+        field-type:
+          type-ref:
+            name: Pubkey
+            package: "thru.common.primitives"
+      - name: seat_authority
+        field-type:
+          type-ref:
+            name: Pubkey
+            package: "thru.common.primitives"
+      - name: wallet
+        field-type:
+          type-ref:
+            name: Pubkey
+            package: "thru.common.primitives"
+      - name: vault
+        field-type:
+          type-ref:
+            name: Pubkey
+            package: "thru.common.primitives"
+- name: MarketStatusEvent
+  kind:
+    struct:
+      packed: true
+      fields:
+      - name: status_flags
+        field-type:
+          primitive: u8
+      - name: reserved0
+        field-type:
+          array:
+            size:
+              literal:
+                u64: 7
+            element-type:
+              primitive: u8
+      - name: market
+        field-type:
+          type-ref:
+            name: Pubkey
+            package: "thru.common.primitives"
+      - name: market_authority
+        field-type:
+          type-ref:
+            name: Pubkey
+            package: "thru.common.primitives"
+- name: ExchangeInitializedEvent
+  kind:
+    struct:
+      packed: true
+      fields:
+      - name: status_flags
+        field-type:
+          primitive: u8
+      - name: reserved0
+        field-type:
+          array:
+            size:
+              literal:
+                u64: 7
+            element-type:
+              primitive: u8
+      - name: exchange_meta
+        field-type:
+          type-ref:
+            name: Pubkey
+            package: "thru.common.primitives"
+      - name: token_program
+        field-type:
+          type-ref:
+            name: Pubkey
+            package: "thru.common.primitives"
+      - name: exchange_admin
+        field-type:
+          type-ref:
+            name: Pubkey
+            package: "thru.common.primitives"
+- name: ExchangeStatusEvent
+  kind:
+    struct:
+      packed: true
+      fields:
+      - name: old_status_flags
+        field-type:
+          primitive: u8
+      - name: new_status_flags
+        field-type:
+          primitive: u8
+      - name: reserved0
+        field-type:
+          array:
+            size:
+              literal:
+                u64: 6
+            element-type:
+              primitive: u8
+      - name: exchange_meta
+        field-type:
+          type-ref:
+            name: Pubkey
+            package: "thru.common.primitives"
+      - name: exchange_admin
+        field-type:
+          type-ref:
+            name: Pubkey
+            package: "thru.common.primitives"
+- name: ExchangeAdminEvent
+  kind:
+    struct:
+      packed: true
+      fields:
+      - name: is_recovery
+        field-type:
+          primitive: u8
+      - name: reserved0
+        field-type:
+          array:
+            size:
+              literal:
+                u64: 7
+            element-type:
+              primitive: u8
+      - name: exchange_meta
+        field-type:
+          type-ref:
+            name: Pubkey
+            package: "thru.common.primitives"
+      - name: old_admin
+        field-type:
+          type-ref:
+            name: Pubkey
+            package: "thru.common.primitives"
+      - name: new_admin
+        field-type:
+          type-ref:
+            name: Pubkey
+            package: "thru.common.primitives"
+      - name: authority
+        field-type:
+          type-ref:
+            name: Pubkey
+            package: "thru.common.primitives"
+- name: MarketExchangeStatusEvent
+  kind:
+    struct:
+      packed: true
+      fields:
+      - name: status_flags
+        field-type:
+          primitive: u8
+      - name: reserved0
+        field-type:
+          array:
+            size:
+              literal:
+                u64: 7
+            element-type:
+              primitive: u8
+      - name: market
+        field-type:
+          type-ref:
+            name: Pubkey
+            package: "thru.common.primitives"
+      - name: exchange_admin
+        field-type:
+          type-ref:
+            name: Pubkey
+            package: "thru.common.primitives"
+- name: LiquidationEvent
+  kind:
+    struct:
+      packed: true
+      fields:
+      - name: market
+        field-type:
+          type-ref:
+            name: Pubkey
+            package: "thru.common.primitives"
+      - name: liquidator
+        field-type:
+          type-ref:
+            name: Pubkey
+            package: "thru.common.primitives"
+      - name: target
+        field-type:
+          type-ref:
+            name: Pubkey
+            package: "thru.common.primitives"
+      - name: liquidator_seat_idx
+        field-type:
+          primitive: u32
+      - name: target_seat_idx
+        field-type:
+          primitive: u32
+      - name: lots
+        field-type:
+          primitive: u64
+      - name: mark_price
+        field-type:
+          primitive: u64
+      - name: fee
+        field-type:
+          primitive: u64
+      - name: bad_debt
+        field-type:
+          primitive: u64
+      - name: target_quote_after
+        field-type:
+          primitive: u64
+      - name: liquidator_quote_after
+        field-type:
+          primitive: u64
+      - name: side
+        field-type:
+          primitive: u8
+      - name: reserved0
+        field-type:
+          array:
+            size:
+              literal:
+                u64: 7
+            element-type:
+              primitive: u8

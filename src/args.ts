@@ -16,6 +16,8 @@ export interface ParsedArgs {
   /** Decode events with program ABIs (on unless --no-decode). */
   decode: boolean;
   tokenAccounts: string[];
+  /** Also write Perp trades to this CSV file. */
+  trades?: string;
 }
 
 export function parseArgs(argv: string[]): ParsedArgs {
@@ -34,6 +36,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       case '-q': case '--quiet': parsed.quiet = true; break;
       case '--success-only': parsed.successOnly = true; break;
       case '--no-decode': parsed.decode = false; break;
+      case '--trades': parsed.trades = next(); break;
       case '--token-account': {
         const value = next();
         if (!/^ta[A-Za-z0-9_-]{44}$/.test(value)) throw new Error(`--token-account must be a Thru address: ${value}`);

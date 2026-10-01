@@ -45,6 +45,9 @@ thru-ledger-export <address> --limit 50 --success-only -o recent.csv
 # JSON instead, including the account balance, total fees and per-token totals
 thru-ledger-export <address> -f json -o ledger.json
 
+# Perp trades as a second CSV, next to the ledger (Betanet)
+thru-ledger-export <address> --network betanet -o ledger.csv --trades trades.csv
+
 # A token account this address owned before the exported period
 thru-ledger-export <address> --from 2026-07-01 --token-account <token-account> -o h2.csv
 ```
@@ -59,6 +62,7 @@ thru-ledger-export <address> --from 2026-07-01 --token-account <token-account> -
 | `--success-only` | Drop transactions that failed consensus or execution |
 | `--no-decode` | Don't decode events: no amount columns, and no ABI requests |
 | `--token-account <address>` | A token account owned by the exported address (repeatable; see below) |
+| `--trades <file>` | Also write the address's Perp trades to this CSV; see [Perp trades](#perp-trades) |
 | `-n, --network <name>` | `alphanet` (default) or `betanet`; see [Networks](#networks) |
 | `--base-url <url>` | Explorer base URL (default `https://scan.thru.org`) |
 | `--concurrency <n>` | Parallel detail requests (default 4) |
@@ -170,6 +174,38 @@ start of the history may be cut off, so an opening balance can show as unknown
 rather than a guessed zero. Token balances come straight from on-chain events;
 THRU balances are derived as described above.
 
+## Perp trades
+
+Thru's Perp Program (live on Betanet) emits an event for every fill, collateral
+deposit and withdrawal, and liquidation. When the exported address takes part,
+`--trades <file>` writes one row per event to a separate CSV, and JSON output
+gains `trades` and per-market `tradeTotals`. In the ledger itself these
+transactions get the action `perp_fill`, `perp_deposit`, `perp_withdraw` or
+`perp_liquidation`.
+
+| Column | Meaning |
+| --- | --- |
+| `kind` | `fill`, `deposit`, `withdraw` or `liquidation` |
+| `role` | `taker` or `maker` for fills; `liquidator` or `liquidated` |
+| `side` | `buy` or `sell`, from the address's side of the fill (the maker's side is the opposite of the taker's) |
+| `price` | Quote atoms per base atom (the mark price, for liquidations) |
+| `qty` | Base atoms (lots, for liquidations) |
+| `notionalQuoteRaw` | `price × qty`, in quote atoms |
+| `amountQuoteRaw` | Collateral moved, for deposits and withdrawals |
+| `feeQuoteRaw` | Liquidation fee |
+| `longLotsAfter`, `shortLotsAfter`, `netLotsAfter` | The address's position in that market right after |
+| `collateralQuoteAfterRaw` | The seat's quote balance right after, when the event reports it |
+| `counterparty` | The other seat of a fill or liquidation, or the vault for deposits and withdrawals |
+
+Amounts stay raw: the explorer doesn't return account data, so the quote token
+(`quoteMint`) is known only when the market's creation is in the fetched
+history, and decimals aren't applied. The units follow Thru's own Perp client.
+On both live Betanet markets the lot size is 1, and across consecutive fills the
+position changed by exactly `qty` lots; on a market with another lot size, check
+`qty` against the lot columns before relying on the notional. Profit and loss
+settles into the seat's quote balance on every fill, so the trades CSV records
+trades and positions, not realised gains.
+
 ## Use as a library
 
 ```ts
@@ -179,6 +215,7 @@ const result = await exportAccount('<address>', { network: 'betanet', limit: 100
 console.log(result.totalFeesThru, 'THRU in fees');
 console.log(toCsv(result.rows));
 console.log(result.tokenTotals); // per token: in, out, net, closing balance
+console.log(result.tradeTotals); // per Perp market: fills, bought, sold, closing position
 ```
 
 `ThruExplorerClient` is exported too, if you want the raw explorer responses: `getAccount`, `getTransaction`, `getAbi`, `listAllTransactions` and `getTransactions`.
