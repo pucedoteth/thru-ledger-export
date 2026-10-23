@@ -22,6 +22,10 @@ Options:
       --token-account <address>
                          A token account owned by this address that was created
                          before the exported history (repeatable)
+      --no-token-accounts
+                         Don't merge in the history of this address's token
+                         accounts (by default, tokens received into them are
+                         included so the export is complete)
   -n, --network <name>   alphanet | betanet       (default: alphanet)
       --base-url <url>   Explorer base URL (default: https://scan.thru.org)
       --concurrency <n>  Parallel detail requests (default: 4)
@@ -61,6 +65,7 @@ async function main(): Promise<void> {
     concurrency: args.concurrency,
     decode: args.decode,
     tokenAccounts: args.tokenAccounts,
+    followTokenAccounts: args.followTokenAccounts,
     onProgress: ({ fetched, total, phase }) => {
       if (args.quiet) return;
       const suffix = total ? `/${total}` : '';
@@ -81,6 +86,9 @@ async function main(): Promise<void> {
   if (args.out) {
     await writeFile(args.out, output, 'utf8');
     log(`Wrote ${result.rows.length} transactions from ${result.network} to ${args.out}`);
+    if (result.tokenAccountsFollowed.length > 0) {
+      log(`Included history of ${result.tokenAccountsFollowed.length} token account(s): ${result.tokenAccountsFollowed.join(', ')}`);
+    }
     log(`Fees paid by this account: ${result.totalFeesThru} THRU`);
     for (const total of result.tokenTotals) {
       const name = total.tokenSymbol || total.tokenMint;
