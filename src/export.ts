@@ -6,6 +6,7 @@ import {
 } from './events.js';
 import { decodeNativeTransfer, isAccountCreation, NATIVE_DECIMALS, NATIVE_SYMBOL, type NativeTransfer } from './native.js';
 import type { DecodedEvent, LedgerRow, TransactionDetail } from './types.js';
+import { applyKnownMints } from './mints.js';
 import { collectMarkets, summarizeTrades, tradeRowsFor, type TradeRow, type TradeTotal } from './perp.js';
 
 export interface ExportOptions extends ClientOptions {
@@ -24,6 +25,12 @@ export interface ExportOptions extends ClientOptions {
    * the exported history are found automatically; list older ones here.
    */
   tokenAccounts?: string[];
+  /**
+   * Also fetch the history of every token account the exported address owns,
+   * so tokens received into those accounts (which never touch the wallet
+   * address itself) appear in the same export. Default true; needs decoding.
+   */
+  followTokenAccounts?: boolean;
 }
 
 /**
@@ -77,6 +84,8 @@ export interface ExportResult {
   period: { from?: string; to?: string };
   /** false when --limit cut the history short, so opening balances may be unknown. */
   historyComplete: boolean;
+  /** Token accounts of this address whose history was merged into the rows. */
+  tokenAccountsFollowed: string[];
   rows: LedgerRow[];
   totalFeesRaw: string;
   totalFeesThru: string;
@@ -102,11 +111,18 @@ function inPeriod(row: LedgerRow, from?: string, to?: string): boolean {
   return true;
 }
 
-/** Fetch each distinct event program's ABI once. Programs without one map to undefined. */
-export async function loadAbis(client: ThruExplorerClient, details: TransactionDetail[]): Promise<Map<string, ProgramAbi | undefined>> {
+/**
+ * Fetch each distinct event program's ABI once. Programs without one map to
+ * undefined. Programs already in `known` are not fetched again.
+ */
+export async function loadAbis(
+  client: ThruExplorerClient, details: TransactionDetail[], known: Map<string, ProgramAbi | undefined> = new Map(),
+): Promise<Map<string, ProgramAbi | undefined>> {
   const programs = new Set<string>();
   for (const detail of details) {
-    for (const event of detail.events?.events ?? []) if (event.programAddress) programs.add(event.programAddress);
+    for (const event of detail.events?.events ?? []) {
+      if (event.programAddress && !known.has(event.programAddress)) programs.add(event.programAddress);
+    }
   }
   const abis = new Map<string, ProgramAbi | undefined>();
   for (const program of programs) {
@@ -241,18 +257,44 @@ function total(
 export async function exportAccount(address: string, options: ExportOptions = {}): Promise<ExportResult> {
   const client = new ThruExplorerClient(options);
   const account = await client.getAccount(address).catch(() => undefined);
-  const summaries = await client.listAllTransactions(address, options.limit);
-  const details = await client.getTransactions(summaries.map((tx) => tx.signature));
-  const historyComplete = options.limit === undefined || summaries.length < options.limit;
-
   const decode = options.decode !== false;
-  const abis = decode ? await loadAbis(client, details) : new Map<string, ProgramAbi | undefined>();
+  const details: TransactionDetail[] = [];
+  const seen = new Set<string>();
+  const abis = new Map<string, ProgramAbi | undefined>();
   const decodedByTx = new Map<string, DecodedEvent[]>();
-  if (decode) {
-    for (const detail of details) decodedByTx.set(detail.signature, decodeEvents(detail, (program) => abis.get(program)));
-  }
+  let historyComplete = true;
+
+  /** Add one account's history, skipping transactions already fetched through another account. */
+  const addHistory = async (target: string): Promise<void> => {
+    const summaries = await client.listAllTransactions(target, options.limit);
+    if (options.limit !== undefined && summaries.length >= options.limit) historyComplete = false;
+    const fresh = summaries.map((tx) => tx.signature).filter((signature) => !seen.has(signature));
+    fresh.forEach((signature) => seen.add(signature));
+    const fetched = await client.getTransactions(fresh);
+    details.push(...fetched);
+    if (!decode) return;
+    for (const [program, abi] of await loadAbis(client, fetched, abis)) abis.set(program, abi);
+    for (const detail of fetched) decodedByTx.set(detail.signature, decodeEvents(detail, (program) => abis.get(program)));
+  };
+
   // Ownership and token metadata come from the whole fetched history, before date filters.
-  const context = buildTokenContext(address, [...decodedByTx.values()].flat(), options.tokenAccounts);
+  const learnContext = () =>
+    applyKnownMints(buildTokenContext(address, [...decodedByTx.values()].flat(), options.tokenAccounts), client.network);
+
+  await addHistory(address);
+  let context = learnContext();
+
+  // Tokens received into a token account never touch the wallet address, so
+  // they only show up in that token account's own history. Pull it in.
+  const followed: string[] = [];
+  if (decode && options.followTokenAccounts !== false) {
+    for (const tokenAccount of context.owned) {
+      if (tokenAccount === address) continue;
+      await addHistory(tokenAccount);
+      followed.push(tokenAccount);
+    }
+    if (followed.length > 0) context = learnContext();
+  }
 
   const markets = collectMarkets([...decodedByTx.values()].flat());
   const entries = details.map((detail) => {
@@ -305,6 +347,7 @@ export async function exportAccount(address: string, options: ExportOptions = {}
     balanceRaw: account?.data?.balanceRaw,
     period: { from: options.from, to: options.to },
     historyComplete,
+    tokenAccountsFollowed: followed,
     rows,
     totalFeesRaw,
     totalFeesThru: formatThru(totalFeesRaw),

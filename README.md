@@ -61,6 +61,7 @@ thru-ledger-export <address> --from 2026-07-01 --token-account <token-account> -
 | `--no-decode` | Don't decode events: no amount columns, and no ABI requests |
 | `--token-account <address>` | A token account owned by the exported address (repeatable; see below) |
 | `--trades <file>` | Also write the address's Perp trades to this CSV; see [Perp trades](#perp-trades) |
+| `--no-token-accounts` | Export only the address itself, without merging in its token accounts' history |
 | `-n, --network <name>` | `alphanet` (default) or `betanet`; see [Networks](#networks) |
 | `--base-url <url>` | Explorer base URL (default `https://scan.thru.org`) |
 | `--concurrency <n>` | Parallel detail requests (default 4) |
@@ -129,9 +130,16 @@ A few things to know:
   `--limit`), pass it with `--token-account` so its movements get a direction
   and a balance. Date filters (`--from`, `--to`) don't hide ownership: they are
   applied after the whole history is read.
+- **One file per wallet.** Tokens sent to you land in your token account, and
+  that transaction never mentions your wallet address. So when you export a
+  wallet, the tool also reads the history of each token account it owns and
+  merges it in, once per transaction. The summary line lists the token accounts
+  it included. Use `--no-token-accounts` to export the address alone.
 - **Decimals and tickers** come from the mint's creation event. When that isn't
-  in the history, `amount` and `tokenBalanceAfter` stay empty and the `…Raw`
-  columns still carry the exact values.
+  in the history, well-known mints are filled in from a small built-in table
+  (currently test THRUSD on Alphanet: 6 decimals). For any other mint,
+  `amount` and `tokenBalanceAfter` stay empty and the `…Raw` columns still
+  carry the exact values.
 - **One row per transaction.** When a transaction moves several tokens, the row
   shows the first movement that involves your account. The JSON output has
   every decoded event under `rows[].events`, plus `tokenTotals` with each

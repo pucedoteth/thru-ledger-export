@@ -18,11 +18,13 @@ export interface ParsedArgs {
   tokenAccounts: string[];
   /** Also write Perp trades to this CSV file. */
   trades?: string;
+  /** Merge the history of the address's token accounts (on unless --no-token-accounts). */
+  followTokenAccounts: boolean;
 }
 
 export function parseArgs(argv: string[]): ParsedArgs {
   const parsed: ParsedArgs = {
-    format: 'csv', successOnly: false, quiet: false, help: false, decode: true, tokenAccounts: [],
+    format: 'csv', successOnly: false, quiet: false, help: false, decode: true, tokenAccounts: [], followTokenAccounts: true,
   };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -37,6 +39,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       case '--success-only': parsed.successOnly = true; break;
       case '--no-decode': parsed.decode = false; break;
       case '--trades': parsed.trades = next(); break;
+      case '--no-token-accounts': parsed.followTokenAccounts = false; break;
       case '--token-account': {
         const value = next();
         if (!/^ta[A-Za-z0-9_-]{44}$/.test(value)) throw new Error(`--token-account must be a Thru address: ${value}`);
