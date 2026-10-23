@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Thru Ledger Export</title>
+  <meta name="description" content="Download the full history of a Thru wallet as a CSV for bookkeeping and audit. Runs in your browser; no keys, no sign-in.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,400;0,500;0,700;0,800;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231F2A44'/%3E%3Cpath d='M8 17l5 5 11-12' fill='none' stroke='%23F07A73' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+</head>
+<body>
+  <main class="sheet">
+    <header class="masthead">
+      <p class="wordmark">thru-ledger-export</p>
+      <h1>Your Thru wallet, as a spreadsheet.</h1>
+      <p class="lede">Paste a wallet address and download its whole history as a CSV: every transaction, fee and token movement, with balances that reconcile.</p>
+    </header>
+
+    <form id="export-form" class="export" novalidate>
+      <div class="field field-address">
+        <label for="address">Wallet address</label>
+        <input id="address" name="address" type="text" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false"
+          placeholder="ta…" aria-describedby="address-help address-error" required>
+        <p id="address-help" class="help">A Thru address starts with “ta” and is 46 characters long. Addresses are public, so no keys or sign-in are needed.</p>
+        <p id="address-error" class="error" role="alert" hidden></p>
+      </div>
+
+      <div class="field field-network">
+        <label for="network">Network</label>
+        <select id="network" name="network">
+          <option value="alphanet">Alphanet</option>
+          <option value="betanet">Betanet</option>
+        </select>
+      </div>
+
+      <details class="more">
+        <summary>Dates and filters</summary>
+        <div class="more-grid">
+          <div class="field">
+            <label for="from">From (UTC)</label>
+            <input id="from" name="from" type="date">
+          </div>
+          <div class="field">
+            <label for="to">To (UTC)</label>
+            <input id="to" name="to" type="date">
+          </div>
+          <label class="check"><input id="success-only" name="successOnly" type="checkbox"> Leave out failed transactions</label>
+        </div>
+      </details>
+
+      <div class="actions">
+        <button id="submit" class="primary" type="submit">Download CSV</button>
+        <p id="progress" class="progress" aria-live="polite"></p>
+      </div>
+    </form>
+
+    <section id="result" class="result" hidden aria-labelledby="result-title">
+      <h2 id="result-title">Ledger</h2>
+      <p id="result-meta" class="meta"></p>
+      <div id="footings" class="footings"></div>
+      <p id="notes" class="notes"></p>
+      <div class="downloads">
+        <button id="again" type="button">Download CSV again</button>
+        <button id="json" type="button">Download JSON</button>
+        <button id="trades" type="button" hidden>Download Perp trades CSV</button>
+      </div>
+      <div class="preview-wrap">
+        <table id="preview" class="preview">
+          <caption id="preview-caption"></caption>
+          <thead>
+            <tr><th scope="col">Date (UTC)</th><th scope="col">What happened</th><th scope="col" class="num">Amount</th><th scope="col">Token</th><th scope="col">Transaction</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer class="colophon">
+      <h2>How it works</h2>
+      <p>This page runs entirely in your browser. It reads the address’s public history from Thru’s explorer (scan.thru.org) and token details from Thru’s public RPC node, builds the file on your device, and sends your address nowhere else.</p>
+      <p>Prefer the command line? <code>npx thru-ledger-export &lt;address&gt; -o ledger.csv</code> does the same. The code is open source on <a href="https://github.com/pucedoteth/thru-ledger-export">GitHub</a>, where the README explains every column.</p>
+    </footer>
+  </main>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

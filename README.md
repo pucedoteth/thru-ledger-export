@@ -6,6 +6,12 @@ Thru's explorer shows transactions one page at a time in a browser. If you need 
 
 No API key. No account. No runtime dependencies.
 
+## In your browser
+
+No install at all: open **https://pucedoteth.github.io/thru-ledger-export/**, paste a wallet address, and click **Download CSV**. The page runs the same code as the command-line tool, entirely in your browser: it reads the public history from Thru's explorer and token details from Thru's RPC node, and builds the file on your device. It also shows each token's reconciliation and a preview, and offers the JSON and Perp trades files.
+
+A link can carry the address and network, for example `…/thru-ledger-export/?address=ta…&network=betanet`, which is handy for sending to an accountant.
+
 ## Install
 
 Run it without installing anything first:
