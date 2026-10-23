@@ -3,46 +3,10 @@ import { exportAccount } from '../src/export.js';
 import { applyKnownMints } from '../src/mints.js';
 import { buildTokenContext } from '../src/events.js';
 import { parseArgs } from '../src/args.js';
-import { TOKEN_ABI_YAML } from './token-fixtures.js';
 import {
-  THRUSD_FAUCET_MINT_TX, THRUSD_INIT_ACCOUNT_TX, THRUSD_LISTINGS, THRUSD_MINT, THRUSD_TOKEN_ACCOUNT,
-  THRUSD_WALLET, TOKEN_PROGRAM_V2, WALLET_CREATED_TX,
+  ALL_THRUSD_TXS as ALL, fakeExplorer, THRUSD_INIT_ACCOUNT_TX, THRUSD_MINT, THRUSD_TOKEN_ACCOUNT,
+  THRUSD_WALLET, TOKEN_PROGRAM_V2,
 } from './thrusd-fixtures.js';
-
-const ALL = [WALLET_CREATED_TX, THRUSD_INIT_ACCOUNT_TX, THRUSD_FAUCET_MINT_TX];
-
-/**
- * Serves the captured alphanet data. The Token Program's live ABI is
- * byte-for-byte the fixture ABI (same 14,556 bytes and SHA-256, checked
- * 2026-10-23); the Wallet Program's ABI is not served, so its events stay
- * undecoded, as they would if the explorer had none.
- */
-function fakeExplorer() {
-  const calls: string[] = [];
-  const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200 });
-  const impl = async (input: string | URL | Request): Promise<Response> => {
-    const url = String(input);
-    calls.push(url);
-    const path = decodeURIComponent(url.replace('https://scan.thru.org', '').split('?')[0]!);
-    if (path.startsWith('/api/abi/')) {
-      return path.endsWith(TOKEN_PROGRAM_V2)
-        ? json({ data: { programAddress: TOKEN_PROGRAM_V2, programName: 'Token Program', abi: TOKEN_ABI_YAML } })
-        : new Response('no abi', { status: 404 });
-    }
-    if (path.startsWith('/api/tx/')) {
-      const signature = path.slice('/api/tx/'.length);
-      return json({ data: ALL.find((tx) => tx.signature === signature) });
-    }
-    const list = path.match(/^\/api\/address\/([^/]+)\/transactions$/);
-    if (list) {
-      const transactions = (THRUSD_LISTINGS[list[1]!] ?? []).map((tx) => ({ signature: tx.signature, slot: tx.slot }));
-      return json({ data: { address: list[1], transactions, pagination: { pageSize: 100 } } });
-    }
-    const address = path.slice('/api/address/'.length);
-    return json({ data: { address, balance: '0 THRU', balanceRaw: '0' } });
-  };
-  return { impl: impl as unknown as typeof fetch, calls };
-}
 
 describe('wallet export with a THRUSD token account', () => {
   it('includes tokens received into the wallet’s token account, in readable amounts', async () => {

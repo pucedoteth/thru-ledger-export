@@ -20,11 +20,14 @@ export interface ParsedArgs {
   trades?: string;
   /** Merge the history of the address's token accounts (on unless --no-token-accounts). */
   followTokenAccounts: boolean;
+  /** Read mint tickers and decimals over RPC (on unless --no-mint-lookup). */
+  mintLookup: boolean;
+  rpcUrl?: string;
 }
 
 export function parseArgs(argv: string[]): ParsedArgs {
   const parsed: ParsedArgs = {
-    format: 'csv', successOnly: false, quiet: false, help: false, decode: true, tokenAccounts: [], followTokenAccounts: true,
+    format: 'csv', successOnly: false, quiet: false, help: false, decode: true, tokenAccounts: [], followTokenAccounts: true, mintLookup: true,
   };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -40,6 +43,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
       case '--no-decode': parsed.decode = false; break;
       case '--trades': parsed.trades = next(); break;
       case '--no-token-accounts': parsed.followTokenAccounts = false; break;
+      case '--no-mint-lookup': parsed.mintLookup = false; break;
+      case '--rpc-url': parsed.rpcUrl = next(); break;
       case '--token-account': {
         const value = next();
         if (!/^ta[A-Za-z0-9_-]{44}$/.test(value)) throw new Error(`--token-account must be a Thru address: ${value}`);

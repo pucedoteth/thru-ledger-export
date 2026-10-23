@@ -6,7 +6,9 @@ import {
 } from './events.js';
 import { decodeNativeTransfer, isAccountCreation, NATIVE_DECIMALS, NATIVE_SYMBOL, type NativeTransfer } from './native.js';
 import type { DecodedEvent, LedgerRow, TransactionDetail } from './types.js';
-import { applyKnownMints } from './mints.js';
+import { applyKnownMints, KNOWN_MINTS } from './mints.js';
+import { fetchMints, RPC_URLS } from './rpc.js';
+import type { TokenContext } from './events.js';
 import { collectMarkets, summarizeTrades, tradeRowsFor, type TradeRow, type TradeTotal } from './perp.js';
 
 export interface ExportOptions extends ClientOptions {
@@ -31,6 +33,24 @@ export interface ExportOptions extends ClientOptions {
    * address itself) appear in the same export. Default true; needs decoding.
    */
   followTokenAccounts?: boolean;
+  /**
+   * Read the ticker and decimals of every mint in the history from a Thru
+   * RPC node, for mints whose creation isn't in the history. Default true;
+   * needs decoding. Falls back to a small built-in table when the node
+   * can't be reached.
+   */
+  mintLookup?: boolean;
+  /** RPC node for mint lookups. Default: Thru's public node for the network. */
+  rpcUrl?: string;
+}
+
+/** Where a token's ticker and decimals came from. */
+export interface MintDetail {
+  tokenMint: string;
+  tokenSymbol: string;
+  decimals?: number;
+  /** history: its initialize_mint event. chain: its mint account, via RPC. table: built-in list. unknown: none. */
+  source: 'history' | 'chain' | 'table' | 'unknown';
 }
 
 /**
@@ -86,6 +106,8 @@ export interface ExportResult {
   historyComplete: boolean;
   /** Token accounts of this address whose history was merged into the rows. */
   tokenAccountsFollowed: string[];
+  /** Every token in the history, with its ticker and decimals and where they came from. */
+  mintDetails: MintDetail[];
   rows: LedgerRow[];
   totalFeesRaw: string;
   totalFeesThru: string;
@@ -253,6 +275,60 @@ function total(
   };
 }
 
+/** Most mints a single export will look up over RPC, to stay gentle on the public node. */
+export const MAX_MINT_LOOKUPS = 50;
+
+/** Every mint the decoded history mentions: token accounts' mints and events' mint fields. */
+export function referencedMints(context: TokenContext, events: DecodedEvent[]): string[] {
+  const mints = new Set<string>([...context.accountMint.values(), ...context.mints.keys()]);
+  for (const event of events) {
+    const mint = event.fields?.mint;
+    if (event.decoded && typeof mint === 'string' && mint.startsWith('ta')) mints.add(mint);
+  }
+  mints.delete(NATIVE_SYMBOL);
+  return [...mints];
+}
+
+/**
+ * Fill in each mint's ticker and decimals, best source first: its creation
+ * event in the history, then its mint account on chain, then the built-in
+ * table. Updates `context.mints` and reports where each came from.
+ */
+export async function describeMints(
+  context: TokenContext, events: DecodedEvent[], network: string,
+  options: Pick<ExportOptions, 'mintLookup' | 'rpcUrl' | 'fetchImpl' | 'timeoutMs'> = {},
+): Promise<MintDetail[]> {
+  const mints = referencedMints(context, events);
+  const source = new Map<string, MintDetail['source']>();
+  const complete = (mint: string) => {
+    const info = context.mints.get(mint);
+    return info?.decimals !== undefined && info.ticker !== undefined;
+  };
+  for (const mint of mints) if (complete(mint)) source.set(mint, 'history');
+
+  const rpcUrl = options.rpcUrl ?? RPC_URLS[network];
+  const missing = mints.filter((mint) => !complete(mint)).slice(0, MAX_MINT_LOOKUPS);
+  if (options.mintLookup !== false && rpcUrl && missing.length > 0) {
+    const onChain = await fetchMints(missing, { rpcUrl, fetchImpl: options.fetchImpl, timeoutMs: options.timeoutMs });
+    for (const [mint, info] of onChain) {
+      const learned = context.mints.get(mint);
+      context.mints.set(mint, { decimals: learned?.decimals ?? info.decimals, ticker: learned?.ticker ?? (info.ticker || undefined) });
+      source.set(mint, 'chain');
+    }
+  }
+
+  for (const mint of mints) {
+    if (complete(mint) || !KNOWN_MINTS[network]?.[mint]) continue;
+    applyKnownMints(context, network, [mint]);
+    source.set(mint, 'table');
+  }
+
+  return mints.map((mint) => {
+    const info = context.mints.get(mint);
+    return { tokenMint: mint, tokenSymbol: info?.ticker ?? '', decimals: info?.decimals, source: source.get(mint) ?? 'unknown' };
+  });
+}
+
 /** Fetch an account's history and return rows ready for CSV or JSON. */
 export async function exportAccount(address: string, options: ExportOptions = {}): Promise<ExportResult> {
   const client = new ThruExplorerClient(options);
@@ -278,8 +354,7 @@ export async function exportAccount(address: string, options: ExportOptions = {}
   };
 
   // Ownership and token metadata come from the whole fetched history, before date filters.
-  const learnContext = () =>
-    applyKnownMints(buildTokenContext(address, [...decodedByTx.values()].flat(), options.tokenAccounts), client.network);
+  const learnContext = () => buildTokenContext(address, [...decodedByTx.values()].flat(), options.tokenAccounts);
 
   await addHistory(address);
   let context = learnContext();
@@ -295,6 +370,10 @@ export async function exportAccount(address: string, options: ExportOptions = {}
     }
     if (followed.length > 0) context = learnContext();
   }
+
+  const mintDetails = decode
+    ? await describeMints(context, [...decodedByTx.values()].flat(), client.network, options)
+    : [];
 
   const markets = collectMarkets([...decodedByTx.values()].flat());
   const entries = details.map((detail) => {
@@ -348,6 +427,7 @@ export async function exportAccount(address: string, options: ExportOptions = {}
     period: { from: options.from, to: options.to },
     historyComplete,
     tokenAccountsFollowed: followed,
+    mintDetails,
     rows,
     totalFeesRaw,
     totalFeesThru: formatThru(totalFeesRaw),

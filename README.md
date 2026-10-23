@@ -62,6 +62,8 @@ thru-ledger-export <address> --from 2026-07-01 --token-account <token-account> -
 | `--token-account <address>` | A token account owned by the exported address (repeatable; see below) |
 | `--trades <file>` | Also write the address's Perp trades to this CSV; see [Perp trades](#perp-trades) |
 | `--no-token-accounts` | Export only the address itself, without merging in its token accounts' history |
+| `--no-mint-lookup` | Don't read token tickers and decimals from the chain; see [Token amounts](#token-amounts) |
+| `--rpc-url <url>` | RPC node for those lookups (default: Thru's public node for the network) |
 | `-n, --network <name>` | `alphanet` (default) or `betanet`; see [Networks](#networks) |
 | `--base-url <url>` | Explorer base URL (default `https://scan.thru.org`) |
 | `--concurrency <n>` | Parallel detail requests (default 4) |
@@ -135,11 +137,21 @@ A few things to know:
   wallet, the tool also reads the history of each token account it owns and
   merges it in, once per transaction. The summary line lists the token accounts
   it included. Use `--no-token-accounts` to export the address alone.
-- **Decimals and tickers** come from the mint's creation event. When that isn't
-  in the history, well-known mints are filled in from a small built-in table
-  (currently test THRUSD on Alphanet: 6 decimals). For any other mint,
-  `amount` and `tokenBalanceAfter` stay empty and the `…Raw` columns still
-  carry the exact values.
+- **Decimals and tickers** come from the best source available, for every
+  token in the history:
+  1. the mint's creation event, when it's in the history;
+  2. otherwise the mint account itself, read from Thru's public RPC node for
+     the network (`rpc.alphanet.thru.org` or `rpc.betanet.thru.org`; one small
+     read-only request per token, at most 50). Only accounts owned by the Token
+     Program are trusted;
+  3. otherwise a small built-in table (THRUSD on Alphanet, tSOL on Betanet),
+     so common tokens still read correctly offline or with `--no-mint-lookup`.
+
+  The summary line says which tokens were read from the chain, and the JSON
+  has `mintDetails` with each token's ticker, decimals and source (`history`,
+  `chain`, `table` or `unknown`). For an `unknown` token, `amount` and
+  `tokenBalanceAfter` stay empty and the `…Raw` columns still carry the exact
+  values.
 - **One row per transaction.** When a transaction moves several tokens, the row
   shows the first movement that involves your account. The JSON output has
   every decoded event under `rows[].events`, plus `tokenTotals` with each
@@ -248,7 +260,7 @@ Being clear about the limits matters more than a longer feature list:
 - **Multicall transactions aren't unpacked.** Calls bundled through the Multicall program show their events, but not their inner instructions.
 - **Only programs with a published ABI are decoded.** Events from other programs are counted in `eventsCount` but not in `eventsDecoded`.
 - **Timestamps come from the block**, which is when the network recorded the transaction.
-- **Data comes from the public explorer** at `scan.thru.org`, for the network you choose. This is a read-only tool: it never asks for a key, a seed phrase or a signature.
+- **Data comes from the public explorer** at `scan.thru.org`, for the network you choose, plus token details from Thru's public RPC node (turn that off with `--no-mint-lookup`). This is a read-only tool: it never asks for a key, a seed phrase or a signature.
 - **No rate limits are published** for the explorer API. The default of 4 parallel requests is deliberately gentle; raise `--concurrency` at your own risk.
 
 ## Development
