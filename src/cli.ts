@@ -26,6 +26,10 @@ Options:
                          Don't merge in the history of this address's token
                          accounts (by default, tokens received into them are
                          included so the export is complete)
+      --no-mint-lookup   Don't read token tickers and decimals from the chain
+                         (uses only the history and a built-in table)
+      --rpc-url <url>    RPC node for those lookups (default: Thru's public
+                         node for the network)
   -n, --network <name>   alphanet | betanet       (default: alphanet)
       --base-url <url>   Explorer base URL (default: https://scan.thru.org)
       --concurrency <n>  Parallel detail requests (default: 4)
@@ -66,6 +70,8 @@ async function main(): Promise<void> {
     decode: args.decode,
     tokenAccounts: args.tokenAccounts,
     followTokenAccounts: args.followTokenAccounts,
+    mintLookup: args.mintLookup,
+    rpcUrl: args.rpcUrl,
     onProgress: ({ fetched, total, phase }) => {
       if (args.quiet) return;
       const suffix = total ? `/${total}` : '';
@@ -88,6 +94,14 @@ async function main(): Promise<void> {
     log(`Wrote ${result.rows.length} transactions from ${result.network} to ${args.out}`);
     if (result.tokenAccountsFollowed.length > 0) {
       log(`Included history of ${result.tokenAccountsFollowed.length} token account(s): ${result.tokenAccountsFollowed.join(', ')}`);
+    }
+    const fromChain = result.mintDetails.filter((mint) => mint.source === 'chain');
+    if (fromChain.length > 0) {
+      log(`Read ticker and decimals from the chain for: ${fromChain.map((mint) => mint.tokenSymbol || mint.tokenMint).join(', ')}`);
+    }
+    const unknown = result.mintDetails.filter((mint) => mint.source === 'unknown');
+    if (unknown.length > 0) {
+      log(`No ticker or decimals found for ${unknown.length} token(s); their amounts are raw only: ${unknown.map((mint) => mint.tokenMint).join(', ')}`);
     }
     log(`Fees paid by this account: ${result.totalFeesThru} THRU`);
     for (const total of result.tokenTotals) {

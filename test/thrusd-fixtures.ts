@@ -1,4 +1,6 @@
 import type { TransactionDetail } from '../src/types.js';
+import { bytesToHex, decodeAddress, hexToBytes } from '../src/address.js';
+import { TOKEN_ABI_YAML } from './token-fixtures.js';
 
 /**
  * A real Thru Wallet (wallet.tid.sh) account and its test THRUSD, captured
@@ -114,3 +116,63 @@ export const THRUSD_LISTINGS: Record<string, TransactionDetail[]> = {
   [THRUSD_WALLET]: [THRUSD_INIT_ACCOUNT_TX, WALLET_CREATED_TX],
   [THRUSD_TOKEN_ACCOUNT]: [THRUSD_FAUCET_MINT_TX, THRUSD_INIT_ACCOUNT_TX],
 };
+
+export const ALL_THRUSD_TXS = [WALLET_CREATED_TX, THRUSD_INIT_ACCOUNT_TX, THRUSD_FAUCET_MINT_TX];
+
+/** What the fake RPC node does: serve captured replies by mint, or be unreachable. */
+export type FakeRpc = 'down' | Record<string, string>;
+
+/**
+ * Serves the captured alphanet data. The Token Program's live ABI is
+ * byte-for-byte the fixture ABI (same 14,556 bytes and SHA-256, checked
+ * 2026-10-23); the Wallet Program's ABI is not served, so its events stay
+ * undecoded, as they would if the explorer had none.
+ *
+ * RPC requests (rpc.*.thru.org) answer from `rpc`: a map of mint address to
+ * the hex of a captured gRPC-Web reply, or 'down' for a node that refuses.
+ * By default the node is down, so other tests see the offline fallback.
+ */
+export function fakeExplorer(options: { rpc?: FakeRpc } = {}) {
+  const rpc = options.rpc ?? 'down';
+  const calls: string[] = [];
+  const rpcRequests: Uint8Array[] = [];
+  const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200 });
+  const impl = async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
+    const url = String(input);
+    calls.push(url);
+    if (url.startsWith('https://rpc.')) {
+      if (rpc === 'down') return new Response('unavailable', { status: 503 });
+      const body = new Uint8Array(init?.body as Uint8Array);
+      rpcRequests.push(body);
+      const key = bytesToHex(body.subarray(9, 41));
+      const mint = Object.keys(rpc).find((address) => bytesToHex(decodeAddress(address)) === key);
+      if (!mint) {
+        const trailer = new TextEncoder().encode('grpc-status:5\r\ngrpc-message:account%20not%20found\r\n');
+        const frame = new Uint8Array(5 + trailer.length);
+        frame[0] = 0x80;
+        new DataView(frame.buffer).setUint32(1, trailer.length);
+        frame.set(trailer, 5);
+        return new Response(frame, { status: 200, headers: { 'content-type': 'application/grpc-web+proto' } });
+      }
+      return new Response(hexToBytes(rpc[mint]!), { status: 200, headers: { 'content-type': 'application/grpc-web+proto' } });
+    }
+    const path = decodeURIComponent(url.replace('https://scan.thru.org', '').split('?')[0]!);
+    if (path.startsWith('/api/abi/')) {
+      return path.endsWith(TOKEN_PROGRAM_V2)
+        ? json({ data: { programAddress: TOKEN_PROGRAM_V2, programName: 'Token Program', abi: TOKEN_ABI_YAML } })
+        : new Response('no abi', { status: 404 });
+    }
+    if (path.startsWith('/api/tx/')) {
+      const signature = path.slice('/api/tx/'.length);
+      return json({ data: ALL_THRUSD_TXS.find((tx) => tx.signature === signature) });
+    }
+    const list = path.match(/^\/api\/address\/([^/]+)\/transactions$/);
+    if (list) {
+      const transactions = (THRUSD_LISTINGS[list[1]!] ?? []).map((tx) => ({ signature: tx.signature, slot: tx.slot }));
+      return json({ data: { address: list[1], transactions, pagination: { pageSize: 100 } } });
+    }
+    const address = path.slice('/api/address/'.length);
+    return json({ data: { address, balance: '0 THRU', balanceRaw: '0' } });
+  };
+  return { impl: impl as unknown as typeof fetch, calls, rpcRequests };
+}
