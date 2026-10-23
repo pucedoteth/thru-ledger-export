@@ -271,6 +271,8 @@ Being clear about the limits matters more than a longer feature list:
 
 ## Development
 
+A weekly **live check** (`.github/workflows/live-check.yml`, run by `scripts/live-check.mjs`) tests the tool against the real Thru network. It claims 1 test THRUSD from the dev.thru.org faucet into the check's own token account, exports the wallet, and fails if the deposit doesn't show up readable and reconciled. That catches changes on Thru's side, like September 2026's move of the built-in programs, within a week. It needs a `THRU_DEVELOPERS_API_KEY` repository secret (a key from dev.thru.org → Account); without one it checks the existing history only. Run it any time from the Actions tab.
+
 ```bash
 npm install
 npm test          # vitest, runs against recorded API fixtures
